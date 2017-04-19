@@ -177,17 +177,20 @@ class DFTerminal(DFNode):
         tname = str(self.name)
 
         if casenum == BIND_CHILD_WITH_MULTI:
-            #handle it when we know we have comparision operator
-            if info_op == "opCmp" and sigdiffStr_Refmax[tname][designnum] != 0 and type(preNode) != DFPartselect:
 
-                curbitdiff = sigdiffStr_Refmax[tname][designnum]
-                maxbit = sigdiffStr_Maxbit[tname]
+            if tname in sigdiffStr_Refmax:
+                #handle it when we know we have comparision operator
+                if info_op == "opCmp" and \
+                                sigdiffStr_Refmax[tname][designnum] != 0 and type(preNode) != DFPartselect:
 
-                partselectbinddest_dict = copy.deepcopy(partselectanalyzer.getBinddict())
-                for bi, bv in partselectbinddest_dict.items():
-                    for bve in bv:
-                        # change the binddest structure of concat based on the signal
-                        bve.partselectBindDestVModify(self, maxbit, curbitdiff, preNode)
+                    curbitdiff = sigdiffStr_Refmax[tname][designnum]
+                    maxbit = sigdiffStr_Maxbit[tname]
+
+                    partselectbinddest_dict = copy.deepcopy(partselectanalyzer.getBinddict())
+                    for bi, bv in partselectbinddest_dict.items():
+                        for bve in bv:
+                            # change the binddest structure of concat based on the signal
+                            bve.partselectBindDestVModify(self, maxbit, curbitdiff, preNode)
 
 
         elif casenum == BIND_DESIGN_DIFF:
