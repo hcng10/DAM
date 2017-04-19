@@ -175,8 +175,8 @@ class DFTerminal(DFNode):
             return
 
         tname = str(self.name)
-        #get here is because we know there is cmp in the tree
-        if casenum == BIND_CHILD_ALL_MULTI:
+
+        if casenum == BIND_CHILD_WITH_MULTI:
             #handle it when we know we have comparision operator
             if info_op == "opCmp" and sigdiffStr_Refmax[tname][designnum] != 0 and type(preNode) != DFPartselect:
 
@@ -189,45 +189,6 @@ class DFTerminal(DFNode):
                         # change the binddest structure of concat based on the signal
                         bve.partselectBindDestVModify(self, maxbit, curbitdiff, preNode)
 
-
-        #if no terminals are mult, then simiplicity rename them without the need to change
-        elif casenum == BIND_CHILD_NO_MULTI:
-            self.name.scopechain[-1].scopename = self.name.scopechain[-1].scopename + str(designnum)
-
-
-        #if some terminals are mult, then rename when it is NOT multi, otherwise concat with zero
-        elif casenum == BIND_CHILD_SOME_MULTI:
-
-            if tname in sigdiffStr_Refmax:
-                curbitdiff = sigdiffStr_Refmax[tname][designnum]
-                maxbit = sigdiffStr_Maxbit[tname]
-
-                # if it gets here and was already partsel, that means in the other design the partsel is with the same
-                # number, and it must be smaller than the smallest bit-width.
-                # therefore just modify the name is already good
-
-                if curbitdiff != 0 and type(preNode) != DFPartselect:
-                    partselectbinddest_dict = copy.deepcopy(partselectanalyzer.getBinddict())
-                    for bi, bv in partselectbinddest_dict.items():
-                        for bve in bv:
-                            # change the binddest structure of concat based on the signal
-                            bve.partselectBindDestVModify(self, maxbit, curbitdiff, preNode)
-
-                    #natvigate the concatbinddest, change it accordingly
-                    # concatbinddest_dict = copy.deepcopy(concatanalyzer.getBinddict())
-                    # for bi, bv in concatbinddest_dict.items():
-                    #     for bve in bv:
-                    #         # change the binddest structure of concat based on the signal
-                    #         bve.concatBindDestVModify(self, maxbit, curbitdiff, preNode)
-                    #         print("....................",bi, bve.tostr())
-
-                    print(self.name)
-
-                    #
-            else:
-                tname = str(self.name)
-                if not tname in sigdiffStr_Refmax:
-                    self.name.scopechain[-1].scopename = self.name.scopechain[-1].scopename + str(designnum)
 
         elif casenum == BIND_DESIGN_DIFF:
             self.name.scopechain[-1].scopename = self.name.scopechain[-1].scopename + str(designnum)
@@ -248,7 +209,7 @@ class DFTerminal(DFNode):
         if (self.name[-1].scopename == options.clockname or self.name[-1].scopename == options.resetname):
             return
 
-        if isCond:
+        if isCond == True:
             tname = str(self.name)
 
             if tname in sigdiffStr_Refmax:
@@ -265,8 +226,8 @@ class DFTerminal(DFNode):
                         for bve in bv:
                             # change the binddest structure of concat based on the signal
                             bve.partselectBindDestVModify(self, maxbit, curbitdiff, preNode)
-            else:
-                self.name.scopechain[-1].scopename = self.name.scopechain[-1].scopename + str(designnum)
+            # else:
+            #     self.name.scopechain[-1].scopename = self.name.scopechain[-1].scopename + str(designnum)
 
 
 
@@ -1273,7 +1234,7 @@ class Bind(object):
 
     def bindDestBrModify(self, options, bindBrIdfyDict, designnum, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, isCond, preNode = None, info_op = None):
         if self.tree is not None:
-            self.tree.bindDestBrModify(options, bindBrIdfyDict, designnum, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, self, isCond)
+            self.tree.bindDestBrModify(options, bindBrIdfyDict, designnum, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, isCond, self)
 
 
 

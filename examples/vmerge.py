@@ -160,60 +160,43 @@ def chgBindDestAfterMuxGen(options, design, bindlist, bindMuxinfodict_list, sigd
 
         # (5-a) Consider the head-is-multi case
         if bi_str in sigdiffStr_Refmax:
-            # (5-aI) case 1: entire tree multi-bit
-            if bindMuxinfo.termMultiNum == bindMuxinfo.termNum:
+            # (5-aI)    case 1: tree common, but with multi-bit and compare
+            if bindMuxinfo.termMultiNum > 0 and bindMuxinfo.hasCmp:
                 #TODO: Improve the compare mechanism in the future
-                # if you have compare in bindtree, we seperate that to two bindtree to simply things
-                if bindMuxinfo.hasCmp:
+                # if you have 'compare' in bindtree, we separate that to TWO bindtree to make things simple
+                muxingscope = bi.scopechain[-1]
+                muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
+
+                for bve in bv:
+                    bve.bindDestVModify(BIND_CHILD_WITH_MULTI, options, design, concatanalyzer, partselectanalyzer,
+                                        sigdiffStr_Refmax, sigdiffStr_Maxbit)
+
+            # (5-aII) case 2: entire tree common but no multi-bit
+            #                 no need to care about 'compare' as well, bcos the subtree is essentially the same
+            #         case 3: tree common, with multi-bit but no cmp
+            else:
+                # Design 0, change the head only, no need to change subtree
+                if design == 0:
                     muxingscope = bi.scopechain[-1]
-                    muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
-
-                    for bve in bv:
-                        bve.bindDestVModify(BIND_CHILD_ALL_MULTI, options, design, concatanalyzer, partselectanalyzer,
-                                            sigdiffStr_Refmax, sigdiffStr_Maxbit)
+                    muxingscope.scopename = muxingscope.scopename + "_mux"
                 else:
-                    # Design 0, change the head only, no need to change subtree
-                    if design == 0:
-                        muxingscope = bi.scopechain[-1]
-                        muxingscope.scopename = muxingscope.scopename + "_mux"
+                    # other designs, delete that head and subtree
+                    del bindlist[i]
 
-                    else:
-                        # other designs, delete that head and subtree
-                        del bindlist[i]
 
-            # (5-aII) case 2: entire tree NO multi-bit,
-            #                   change the head into <signal>_mux0/1/2
-            #                   and all the signals in the subtree are added with 0/1/2 as postfix
-            elif bindMuxinfo.termMultiNum == 0:
-                muxingscope = bi.scopechain[-1]
-                muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
-
-                for bve in bv:
-                    bve.bindDestVModify(BIND_CHILD_NO_MULTI, options, design, concatanalyzer, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit)
-
-            # (5-aIII) case 3: some nodes in tree are NON-multi-bit/ with multi-bit,
-            #                   change the head into <signal>_mux0/1/2
-            #                   and NON-multi-bit signals in the subtree are added with 0/1/2 as postfix
-            #                   and multi-bit signals are changed to point to concatenation bind tree
-            elif bindMuxinfo.termMultiNum > 0 and bindMuxinfo.termMultiNum != bindMuxinfo.termNum:
-                muxingscope = bi.scopechain[-1]
-                muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
-
-                for bve in bv:
-                    bve.bindDestVModify(BIND_CHILD_SOME_MULTI, options, design, concatanalyzer, partselectanalyzer, sigdiffStr_Refmax,
-                                        sigdiffStr_Maxbit)
-
-        # for the rest of the signals, they are different across different design, need to change the signal name
+        # TODO: for the rest of the signals, we take care of that later
+        """
         else:
             designdiffscope = bi.scopechain[-1]
             designdiffscope.scopename = designdiffscope.scopename + str(design)
 
             for bve in bv:
                 bve.bindDestVModify(BIND_DESIGN_DIFF, options, design, None, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit)
-
+        """
         # (5-b) take care the branch portion in the tree, since the conditional is usually evaluated to 1-bit,
         #       we don't need to consider bi, I think
-        bve.bindDestBrModify(options, bindBrIdfyDict, design, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, False)
+        for bve in bv:
+            bve.bindDestBrModify(options, bindBrIdfyDict, design, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, False)
 
 
 
@@ -229,8 +212,17 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict_list, sigdiffStr_Refma
 
             # (6-a) Consider the head-is-multi case
             if ti_str in sigdiffStr_Refmax:
-                # (6-aI) case 1: entire tree multi-bit
-                if bindMuxinfo.termMultiNum == bindMuxinfo.termNum and not bindMuxinfo.hasCmp:
+
+                # (6-aI) case 1: tree common, but with multi-bit and compare
+                if  bindMuxinfo.termMultiNum > 0 and bindMuxinfo.hasCmp:
+                    muxingscope = ti.scopechain[-1]
+                    muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
+
+                    deleteMuxTerm(ti, muxtermStr_ind_dict, muxterm_dict)
+
+                # (6-aI) case 2: tree common, but with multi-bit and no compare
+                #        case 3: entire tree common but no multi-bit
+                else:
                     # Such complicated check is required because the max signals bitwidth can be the same in two designs
                     if sigdiffStr_Refmax[ti_str][design] == 0 and sigdiffStr_Maxbit_Design[ti_str] == design:
                         muxingscope = ti.scopechain[-1]
@@ -242,14 +234,6 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict_list, sigdiffStr_Refma
                         # other designs, delete that signal
                         del termdict[ti]
 
-                # (6-aII) case 2: Not all elements in tree are multi-bit,
-                #                   change the signal into <signal>_mux0/1/2
-                else:
-                    muxingscope = ti.scopechain[-1]
-                    muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
-
-                    deleteMuxTerm(ti, muxtermStr_ind_dict, muxterm_dict)
-
                 # If 'mux' is put as postfix, then it will be an input to mux
                 # which means it will not be used as IO
                 if signaltype.isInput(tv.termtype): tv.termtype.remove('Input')
@@ -258,9 +242,11 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict_list, sigdiffStr_Refma
 
 
             # (6-b) For other signals, they are added with 0/1/2 as postfix
+            """
             else:
                 nonmuxingscope = ti.scopechain[-1]
                 nonmuxingscope.scopename = nonmuxingscope.scopename + str(design)
+            """
 
         elif ti.scopechain[-1].scopename == options.clockname:
             if not design == 0: del termdict[ti]
@@ -407,8 +393,6 @@ def main():
         0. get the bind tree first ()
         1. ID multi-node
         2. Count multi-node and constant
-        3. Find branch
-        4. Find operator on the head, determine demux loc
     """
     print("\n*************** 3rd Step ***************")
 
@@ -467,7 +451,9 @@ def main():
     """
     5. Change the binddest structure (bi, bv) according to step 3.2, which includes:
         ->. handle the case where the head is with multi-bit
-        ->. head not multi-bit, so navigate the tree to see if there are signals with multi-bit
+        ->. head not multi-bit, so there are two possible scenarios
+            (a) head is in part of the common tree
+            (b) head is not part of the common tree
         Goal: change the binddest structure so as to place mux and merge design
     """
 

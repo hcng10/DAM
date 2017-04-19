@@ -140,8 +140,27 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit)
         if sstr not in design_bindMuxinfodict: continue
         bindMuxinfo = design_bindMuxinfodict[sstr]
 
-        #case 1: entire tree multi-bit, and no compare
-        if bindMuxinfo.termMultiNum == bindMuxinfo.termNum and not bindMuxinfo.hasCmp:
+        if bindMuxinfo.termMultiNum > 0 and bindMuxinfo.hasCmp:
+            mux_file.write('    wire [`MUX_%s_O_WIDTH - 1:0] %s;\n' % (sstr_nodot, sstr_nodot))
+
+            # create wires
+            for i in range(0, design_num):
+                mux_file.write('    wire [`MUX_%s_I_WIDTH - 1:0] %s_mux%d;\n' % (sstr_nodot, sstr_nodot, i))
+
+            # create the mux
+            mux_file.write('    mux_%s mux_%s(.sel(sel), ' % (sstr_nodot, sstr_nodot))
+            for i in range(0, design_num):
+                if sbitdiff[i] == 0:
+                    wrsignal = '%s_mux%d' % (sstr_nodot, i)  # sbitdiff[i] is a negative number
+                else:
+                    wrsignal = '{%d\'d0, %s_mux%d[%d:0]}' % (
+                    0 - sbitdiff[i], sstr_nodot, i, sigdiffScope_Maxbit[sstr] + sbitdiff[i] - 1)
+
+                mux_file.write('.d%d(%s), ' % (i, wrsignal))
+
+            mux_file.write('.q(%s));\n' % (sstr_nodot))
+
+        else:
             sstr_nodot_mux = sstr_nodot + '_mux'
 
             #create wires
@@ -159,23 +178,6 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit)
             mux_file.write('.q(%s));\n' %(sstr_nodot))
 
 
-        # case 2/3: entire tree NO multi-bit, or some nodes in tree are NON-multi-bit/ with multi-bit,
-        else:
-            mux_file.write('    wire [`MUX_%s_O_WIDTH - 1:0] %s;\n' % (sstr_nodot, sstr_nodot))
-
-            # create wires
-            for i in range(0, design_num):
-                mux_file.write('    wire [`MUX_%s_I_WIDTH - 1:0] %s_mux%d;\n' % (sstr_nodot, sstr_nodot, i))
-
-            # create the mux
-            mux_file.write('    mux_%s mux_%s(.sel(sel), ' % (sstr_nodot, sstr_nodot))
-            for i in range(0, design_num):
-                if sbitdiff[i] == 0: wrsignal = '%s_mux%d' %(sstr_nodot, i) #sbitdiff[i] is a negative number
-                else: wrsignal = '{%d\'d0, %s_mux%d[%d:0]}' %(0-sbitdiff[i], sstr_nodot, i, sigdiffScope_Maxbit[sstr]+sbitdiff[i]-1)
-
-                mux_file.write('.d%d(%s), ' % (i, wrsignal))
-
-            mux_file.write('.q(%s));\n' % (sstr_nodot))
 
         mux_file.write('\n')
 
@@ -323,16 +325,18 @@ def generateMuxTemplate(prefixName, design_num, bind_list, bindMuxinfo, sigdiffS
 
 
             # (3f) Handling the unhandle signal name, usually they are on the top level
-            # case 1: entire tree multi-bit
-            if muxIdfy.termMultiNum == muxIdfy.termNum and not muxIdfy.hasCmp:
-                muxforSig = 'mux_template.' + signame  + '_mux'
-                chgMuxTermScope(lowlevelsigname+ '_mux', muxforSig, muxtermStr_ind_dict, muxtermStr_val_dict, scope_addtotree, bi, q=True)
-
-            # case 2/3: entire tree NO multi-bit, or some nodes in tree are NON-multi-bit/ with multi-bit,
-            else:
+            #   case 1: tree common, but with multi-bit and compare
+            if muxIdfy.termMultiNum > 0 and muxIdfy.hasCmp:
                 for d in range(0, design_num):
                     muxforSig = 'mux_template.' + signame + '_mux' + str(d)
                     chgMuxTermScope(lowlevelsigname+ '_mux' + str(d), muxforSig, muxtermStr_ind_dict, muxtermStr_val_dict, scope_addtotree, bi, q=True)
+
+            #   case 2: tree common, but with multi-bit and no compare
+            #   case 3: entire tree common but no multi-bit
+            else:
+                muxforSig = 'mux_template.' + signame + '_mux'
+                chgMuxTermScope(lowlevelsigname + '_mux', muxforSig, muxtermStr_ind_dict, muxtermStr_val_dict, \
+                                scope_addtotree, bi, q=True)
 
             #Hack: the top sel signal
             muxforSig = 'mux_template.sel'
