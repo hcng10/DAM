@@ -65,6 +65,11 @@ class DFNode(object):
         return not self.__eq__(other)
     def __hash__(self):
         return id(self)
+    #design, termo_set, designMCSOutput_list,
+    def IDNeighbour(self, preNode, info_str=None): pass
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list): pass
+    def MCS_NodeCmp(self, DFNode): pass
+
     # preNode: refers to the head, or the starting point of the conditional in branch
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):pass
     # This function is only used in mux structure, and only the terminal needs to be changed :)
@@ -77,9 +82,12 @@ class DFNode(object):
     def rmvOldConnectNewNode(self, originalterminal, newtree): pass
     def bindDestBrModify(self, options, bindBrIdfyDict, designnum, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, isCond, preNode = None, info_op = None): pass
 
+
+
 class DFTerminal(DFNode):
     attr_names = ('name',)
     def __init__(self, name):
+        self.neighbour = []
         self.name = name
     def __repr__(self):
         ret = ''
@@ -107,6 +115,50 @@ class DFTerminal(DFNode):
         return self.name == other.name
     def __hash__(self):
         return hash(self.name)
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+        # This is important, the starting of the MCS is here
+        if str(self.name) in termo_set:
+            designMCSOutput_list[designnum].insertNode(self)
+            self.output_matched = -1
+
+            if designnum > 0:
+                # iterate every previous design to get the same output ports as starting point
+                for designnum_i in range(0, designnum):
+
+                    matchedoutput = designMCSOutput_list[designnum_i].matchNode_Output(self, designnum)
+                    if matchedoutput is not None:
+                        matchedoutput.output_matched = designnum
+
+                        designM_AB_initial_list[designnum - 1].insertNode_M_AtoB(matchedoutput, self)
+                        if designM_AB_initial_list[designnum - 1].getNode_M_B(self) == None:
+                            designM_AB_initial_list[designnum - 1].insertNode_M_B(self)
+
+                        designF_A_list[designnum - 1].insertNode(matchedoutput)
+
+                        matchedoutput.designAtoB_dict[designnum] = self
+                        self.designBtoA_dict[designnum_i] = matchedoutput
+
+                        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", designnum, designnum_i, self.name)
+
+
+
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and str(self.name.scopechain) == str(DFNode.name.scopechain) and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
+
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -238,6 +290,7 @@ class DFConstant(DFNode):
     attr_names = ('value',)
     def __init__(self, value):
         self.value = value
+        self.neighbour = []
     def __repr__(self):
         return str(self.value)
     def tostr(self):
@@ -253,6 +306,21 @@ class DFConstant(DFNode):
         return self.value == other.value
     def __hash__(self):
         return hash(self.value)
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.value == DFNode.value and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
+
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -273,6 +341,7 @@ class DFConstant(DFNode):
 class DFIntConst(DFConstant):
     def __init__(self, value):
         self.value = value
+        self.neighbour = []
     def tostr(self):
         ret = '(IntConst ' + str(self.value) + ')'
         return ret
@@ -311,6 +380,20 @@ class DFIntConst(DFConstant):
             return int(match.group(1), 10)
         return 32
 
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.value == self.value and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
+
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
@@ -342,11 +425,26 @@ class DFIntConst(DFConstant):
 class DFFloatConst(DFConstant):
     def __init__(self, value):
         self.value = value
+        self.neighbour = []
     def tostr(self):
         ret = '(FloatConst ' + str(self.value) + ')'
         return ret
     def eval(self):
         return float(self.value)
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.value == self.value and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -364,11 +462,26 @@ class DFFloatConst(DFConstant):
 class DFStringConst(DFConstant):
     def __init__(self, value):
         self.value = value
+        neighbour = []
     def tostr(self):
         ret = '(StringConst ' + str(self.value) + ')'
         return ret
     def eval(self):
         return self.value
+
+    def IDNeighbour(self, preNode, info_str = None):
+        self.neighbour.append(preNode)
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.value == self.value and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -384,6 +497,7 @@ class DFOperator(DFNotTerminal):
     def __init__(self, nextnodes, operator):
         self.nextnodes = nextnodes
         self.operator = operator
+        self.neighbour = []
 
         for n in nextnodes:
             if n is None: raise verror.DefinitionError()
@@ -396,6 +510,7 @@ class DFOperator(DFNotTerminal):
         for n in self.nextnodes: ret += n.tostr() + ','
         ret = ret[0:-1] + ')'
         return ret
+
     def tocode(self, dest='dest'):
         ret = ''
         if len(self.nextnodes) > 1:
@@ -415,6 +530,27 @@ class DFOperator(DFNotTerminal):
         return self.operator == other.operator and self.nextnodes == other.nextnodes
     def __hash__(self):
         return hash((self.operator, tuple(self.nextnodes)))
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        for i, n in enumerate(self.nextnodes):
+            self.neighbour.append(n)
+            n.IDNeighbour(self, self.operator + str(i))
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+        for n in self.nextnodes:
+            n.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.operator == DFNode.operator and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -466,6 +602,8 @@ class DFPartselect(DFNotTerminal):
         self.var = var
         self.msb = msb
         self.lsb = lsb
+        self.neighbour = []
+
     def __repr__(self):
         return 'PartSelect'
     def tostr(self):
@@ -475,6 +613,7 @@ class DFPartselect(DFNotTerminal):
         ret += ' LSB:' + self.lsb.tostr()
         ret += ')'
         return ret
+
     def tocode(self, dest='dest'):
         ret = self.var.tocode(dest)
         msbcode = self.msb.tocode(dest)
@@ -496,6 +635,33 @@ class DFPartselect(DFNotTerminal):
         return self.var == other.var and self.msb == other.msb and self.lsb == other.lsb
     def __hash__(self):
         return hash((self.var, self.msb, self.lsb))
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        self.neighbour.append(self.var)
+        self.neighbour.append(self.msb)
+        self.neighbour.append(self.lsb)
+
+        self.var.IDNeighbour(self, "DFPartselect_var")
+        self.msb.IDNeighbour(self, "DFPartselect_msb")
+        self.lsb.IDNeighbour(self, "DFPartselect_lsb")
+
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+        self.var.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+        self.msb.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+        self.lsb.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -543,6 +709,8 @@ class DFPointer(DFNotTerminal):
     def __init__(self, var, ptr):
         self.var = var
         self.ptr = ptr
+
+        self.neighbour = []
     def __repr__(self):
         return 'Pointer'
     def tostr(self):
@@ -551,6 +719,7 @@ class DFPointer(DFNotTerminal):
         ret += ' PTR:' + self.ptr.tostr()
         ret += ')'
         return ret
+
     def tocode(self, dest='dest'):
         ret = self.var.tocode(dest)
         ret += '[' + self.ptr.tocode(dest) + ']'
@@ -565,6 +734,30 @@ class DFPointer(DFNotTerminal):
         return self.var == other.var and self.ptr == other.ptr
     def __hash__(self):
         return hash((self.var, self.ptr))
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        self.neighbour.append(self.var)
+        self.neighbour.append(self.ptr)
+
+        self.var.IDNeighbour(self, "DFPointer_var")
+        self.ptr.IDNeighbour(self, "DFPointer_ptr")
+
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+        self.var.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+        self.ptr.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -599,6 +792,8 @@ class DFConcat(DFNotTerminal):
     attr_names = ()
     def __init__(self, nextnodes):
         self.nextnodes = nextnodes
+        self.neighbour = []
+
     def __repr__(self):
         return 'Concat'
     def tostr(self):
@@ -607,6 +802,7 @@ class DFConcat(DFNotTerminal):
         for n in self.nextnodes: ret += n.tostr() + ','
         ret = ret[0:-1] + ')'
         return ret
+
     def tocode(self, dest='dest'):
         ret = '{'
         for n in self.nextnodes: ret += n.tocode(dest) + ','
@@ -622,6 +818,27 @@ class DFConcat(DFNotTerminal):
         return self.nextnodes == other.nextnodes
     def __hash__(self):
         return hash(tuple(self.nextnodes))
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        for i, n in enumerate(self.nextnodes):
+            self.neighbour.append(n)
+            n.IDNeighbour(self, "DFConcat_" + str(i))
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+        for n in self.nextnodes:
+            n.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -667,6 +884,9 @@ class DFBranch(DFNotTerminal):
         self.condnode = condnode
         self.truenode = truenode
         self.falsenode = falsenode
+
+        self.neighbour = []
+
     def __repr__(self):
         return 'Branch'
     def tostr(self):
@@ -676,6 +896,7 @@ class DFBranch(DFNotTerminal):
         if self.falsenode is not None: ret += ' False:'+ self.falsenode.tostr()
         ret += ')'
         return ret
+
     def tocode(self, dest='dest', always=''):
         if always == 'clockedge': return self._tocode_always(dest, always)
         if always == 'combination': return self._tocode_always(dest, always)
@@ -722,6 +943,42 @@ class DFBranch(DFNotTerminal):
         return self.condnode == other.condnode and self.truenode == other.truenode and self.falsenode == other.falsenode
     def __hash__(self):
         return hash((self.condnode, self.truenode, self.falsenode))
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        if self.condnode is not None:
+            self.neighbour.append(self.condnode)
+            self.condnode.IDNeighbour(self, "DFBranch_cond")
+
+        if self.truenode is not None:
+            self.neighbour.append(self.truenode)
+            self.truenode.IDNeighbour(self, "DFBranch_true")
+
+        if self.falsenode is not None:
+            self.neighbour.append(self.falsenode)
+            self.falsenode.IDNeighbour(self, "DFBranch_false")
+
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+        if self.condnode is not None:
+            self.condnode.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+        if self.truenode is not None:
+            self.truenode.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+        if self.falsenode is not None:
+            self.falsenode.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -784,6 +1041,8 @@ class DFEvalValue(DFNode):
         self.width = width
         self.isfloat = isfloat
         self.isstring = isstring
+
+        self.neighbour = []
     def __repr__(self):
         if self.isstring:
             return self.value
@@ -817,6 +1076,20 @@ class DFEvalValue(DFNode):
     def __hash__(self):
         return hash((self.value, self.width, self.isfloat, self.isstring))
 
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
+
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
@@ -826,6 +1099,7 @@ class DFUndefined(DFNode):
     attr_names = ('width',)
     def __init__(self, width):
         self.width = width
+        self.neighbour = []
     def __repr__(self):
         ret = ''
         if self.width != 32: ret += str(self.width)
@@ -846,6 +1120,20 @@ class DFUndefined(DFNode):
         return self.width == other.width
     def __hash__(self):
         return hash(self.width)
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -856,6 +1144,7 @@ class DFHighImpedance(DFNode):
     attr_names = ('width',)
     def __init__(self, width):
         self.width = width
+        self.neighbour = []
     def __repr__(self):
         ret = ''
         if self.width != 32: ret += str(self.width)
@@ -876,6 +1165,20 @@ class DFHighImpedance(DFNode):
         return self.width == other.width
     def __hash__(self):
         return hash(self.width)
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -887,6 +1190,7 @@ class DFDelay(DFNotTerminal):
     attr_names = ()
     def __init__(self, nextnode):
         self.nextnode = nextnode
+        self.neighbour = []
     def __repr__(self):
         return 'Delay'
     def tostr(self):
@@ -894,6 +1198,7 @@ class DFDelay(DFNotTerminal):
         if self.nextnode is not None: ret += self.nextnode.tostr()
         ret += ')'
         return ret
+
     def tocode(self, dest='dest'):
         raise verror.DefinitionError('DFDelay does not support tocode()')
     def children(self):
@@ -905,6 +1210,27 @@ class DFDelay(DFNotTerminal):
         return self.nextnodes == other.nextnodes
     def __hash__(self):
         return hash(tuple(self.nextnodes))
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        if self.nextnode is not None:
+            self.neighbour.append(self.nextnode)
+            self.nextnode.IDNeighbour(self, "DFDelay")
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+        if self.nextnode is not None:
+            self.nextnode.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -933,6 +1259,7 @@ class DFSyscall(DFNotTerminal):
     def __init__(self, syscall, nextnodes):
         self.syscall = syscall
         self.nextnodes = nextnodes
+        self.neighbour = []
     def __repr__(self):
         return 'Syscall'
     def tostr(self):
@@ -942,6 +1269,7 @@ class DFSyscall(DFNotTerminal):
         for n in self.nextnodes: ret += n.tostr() + ','
         ret = ret[0:-1] + ')'
         return ret
+
     def tocode(self, dest='dest'):
         ret = '$' + self.syscall + '('
         for n in self.nextnodes: ret += n.tocode(dest) + ','
@@ -958,6 +1286,27 @@ class DFSyscall(DFNotTerminal):
         return self.nextnodes == other.nextnodes
     def __hash__(self):
         return hash(tuple(self.nextnodes))
+
+    def IDNeighbour(self, preNode, info_str=None):
+        self.neighbour.append(preNode)
+        for i, n in enumerate(self.nextnodes):
+            self.neighbour.append(n)
+            n.IDNeighbour(self, "DFSyscall_" + str(i))
+        self.parent = preNode
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+        for n in self.nextnodes:
+            n.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and self.syscall == DFNode.syscall and self.parentstr == DFNode.parentstr:
+            return True
+        else:
+            return False
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -1065,6 +1414,7 @@ class Term(object):
 
 ################################################################################
 class Bind(object):
+
     def __init__(self, tree, dest, msb=None, lsb=None, ptr=None, alwaysinfo=None, parameterinfo=''):
         self.tree = tree
         self.dest = dest
@@ -1073,6 +1423,9 @@ class Bind(object):
         self.ptr = ptr
         self.alwaysinfo = alwaysinfo
         self.parameterinfo = parameterinfo
+
+        self.neighbour = []
+
         if dest is None: raise verror.DefinitionError('Bind dest is empty')
 
     def __ne__(self, other):
@@ -1195,6 +1548,47 @@ class Bind(object):
         if self.alwaysinfo is None: return ''
         return self.alwaysinfo.getSenslist()
 
+    def IDNeighbour(self, preNode, info_str=None):
+        #if self.dest is not None:
+            #self.neighbour.append(self.dest)
+            #self.dest.IDNeighbour(self)
+
+        # if self.msb is not None:
+        #     self.neighbour.append(self.msb)
+        #     self.msb.IDNeighbour(self)
+        #
+        # if self.lsb is not None:
+        #     self.neighbour.append(self.lsb)
+        #     self.lsb.IDNeighbour(self)
+
+        if self.ptr is not None:
+            self.neighbour.append(self.ptr)
+            self.ptr.IDNeighbour(self, "Bind_ptr")
+
+        if self.tree is not None:
+            self.neighbour.append(self.tree)
+            self.tree.IDNeighbour(self, "Bind_tree")
+
+        self.parent = self.dest
+        self.parentstr = info_str
+
+        self.designAtoB_dict ={}
+        self.designBtoA_dict = {}
+
+    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+
+        if self.ptr is not None:
+            self.ptr.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+        if self.tree is not None:
+            self.tree.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+
+    def MCS_NodeCmp(self, DFNode):
+        if type(self) == type(DFNode) and str(self.dest) == str(DFNode.dest):# and self.parentstr == DFNode.parentstr
+            return True
+        else:
+            return False
 
     def traverse(self, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
 
@@ -1387,3 +1781,171 @@ class DesignBindDest(object):
     def __init__(self, designNum, bindDestList):
         self.designNum = designNum
         self.bindDestList = bindDestList
+
+
+
+class MCS_Node_Container(object):
+
+    def __init__(self):
+        self.d = {}
+
+
+    def insertNode(self, e):
+        if e not in self.d:
+            self.d[e] = []
+        self.d[e].append(e)
+
+    def getNode(self, e):
+        if e in self.d:
+            for dv in self.d[e]:
+                if id(dv) == id(e): return e
+        return None
+
+    def getNodesinList(self):
+        retlist = []
+        for di, dlist in self.d.items():
+            for dv in dlist:
+                retlist.append(dv)
+        return retlist
+
+    # this is designed to check the output node only
+    def matchNode_Output(self, e, designnum):
+        if e in self.d:
+            for dv in self.d[e]:
+                # return the 1st element only, coz everytime u will need one node
+                if dv.output_matched != designnum and e.MCS_NodeCmp(dv):
+                    return dv
+
+
+    def rmvNode(self, e):
+        if e in self.d:
+            for i in xrange(len(self.d) - 1, -1, -1):
+                if id(self.d[i]) == id(e): del self.d[i]
+
+    def isEmpty(self):
+        if not self.d:
+            return True
+        else:
+            return False
+
+    def getLength(self):
+        if not self.d:
+            return 0
+        else:
+            count = 0
+            for di, dv in self.d.items():
+                count = count + len(dv)
+            return count
+
+
+class MCS_M_AB(object):
+
+    def __init__(self):
+        self.dict_A_refB = {}
+        self.dict_B = {}
+
+    def insertNode_M_AtoB(self, e_A, e_B):
+
+        if e_A not in self.dict_A_refB:
+            self.dict_A_refB[e_A] = []
+        self.dict_A_refB[e_A].append([e_A, e_B])
+
+    def insertNode_M_B(self, e_B):
+
+        if e_B not in self.dict_B:
+            self.dict_B[e_B] = []
+        self.dict_B[e_B].append(e_B)
+
+
+    def getNode_M_A(self, e_A):
+        if e_A in self.dict_A_refB:
+            for e_Av in self.dict_A_refB[e_A]:
+                if id(e_Av[0]) == id(e_A): return e_A
+        return None
+
+    def getNode_M_B(self, e_B):
+        if e_B in self.dict_B:
+            for e_Bv in self.dict_B[e_B]:
+                if id(e_Bv) == id(e_B): return e_B
+            return None
+
+
+    def getNodes_M_A_List(self):
+        retlist = []
+        for di, dlist in self.dict_A_refB.items():
+            for dv in dlist:
+                retlist.append(dv[0])
+        return retlist
+
+
+    def getNodesM_B_List(self):
+        retlist = []
+        for di, dlist in self.dict_B.items():
+            for dv in dlist:
+                retlist.append(dv)
+        return retlist
+
+    def map_M_A_to_M_B(self, e_A):
+        if e_A in self.dict_A_refB:
+            for e_Av in self.dict_A_refB[e_A]:
+                if id(e_Av[0]) == id(e_A): return e_Av[1]
+        return None
+
+
+class MCS_D_A():
+
+    def __init__(self):
+        self.d = {}
+        self.ranking = []
+
+    def isEmpty(self):
+        if not self.ranking: return True
+        else: return False
+
+    def getNode(self, e):
+        if e in self.d:
+            for e_v in self.d[e]:
+                if id(e_v) == id(e): return e_v
+        return None
+
+    # The format of ranking is as follows:
+    # {e_key: [ [<element0>, [<element1>], .................], ......}
+    def insertNode(self, e):
+        if e not in self.d:
+            self.d[e] = []
+        self.d[e].append(e)
+
+        self.ranking.insert(0, e)
+
+    def chooseNode(self):
+        if not self.ranking: return None
+        else:
+            chosen_e = self.ranking.pop(0)
+            chosen_list = self.d[chosen_e]
+
+            for i in range(len(chosen_list) - 1, -1, -1):
+                if id(chosen_list[i]) == id(chosen_e):
+                    del chosen_list[i]
+                    break
+
+            if len(chosen_list) == 0:
+                del self.d[chosen_e]
+
+            return chosen_e
+
+    def lowerNode(self, e):
+        #print("><><><><><><><><><><><><><> neighbour to lower", e.tostr())
+        if not e in self.d:
+           return
+        else:
+            #check if the node exists
+            for lw_e in self.d[e]:
+                if id(lw_e) == id(e):
+                    # check in ranking and find out which position it is
+                    for i in range(len(self.ranking) - 2, -1, -1):
+                        if id(self.ranking[i]) == id(e):
+                            self.ranking.pop(i)
+                            self.ranking.append(e)
+                            #print("><><><><><><><><><><><><><>><><><><><><><><><><><><><> moved neighbour", e, "\n")
+
+
