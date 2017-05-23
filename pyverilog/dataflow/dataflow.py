@@ -66,8 +66,8 @@ class DFNode(object):
     def __hash__(self):
         return id(self)
     #design, termo_set, designMCSOutput_list,
-    def IDNeighbour(self, preNode, info_str=None): pass
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list): pass
+    def IDNeighbour(self, preNode, design_i, info_str=None): pass
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list): pass
     def MCS_NodeCmp(self, DFNode): pass
 
     # preNode: refers to the head, or the starting point of the conditional in branch
@@ -116,7 +116,9 @@ class DFTerminal(DFNode):
     def __hash__(self):
         return hash(self.name)
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
@@ -125,30 +127,35 @@ class DFTerminal(DFNode):
         self.designBtoA_dict = {}
 
 
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+
         # This is important, the starting of the MCS is here
         if str(self.name) in termo_set:
-            designMCSOutput_list[designnum].insertNode(self)
+            designMCSOutput_list[designB_i].insertNode(self)
             self.output_matched = -1
 
-            if designnum > 0:
+            if designB_i > 0:
                 # iterate every previous design to get the same output ports as starting point
-                for designnum_i in range(0, designnum):
+                for designA_i in range(0, designB_i):
 
-                    matchedoutput = designMCSOutput_list[designnum_i].matchNode_Output(self, designnum)
+                    matchedoutput = designMCSOutput_list[designA_i].matchNode_Output(self, designB_i)
                     if matchedoutput is not None:
-                        matchedoutput.output_matched = designnum
+                        matchedoutput.output_matched = designB_i # Mark it so that when a node has the same property
+                                                                 # wouldn't be matched again
 
-                        designM_AB_initial_list[designnum - 1].insertNode_M_AtoB(matchedoutput, self)
-                        if designM_AB_initial_list[designnum - 1].getNode_M_B(self) == None:
-                            designM_AB_initial_list[designnum - 1].insertNode_M_B(self)
+                        M_AB = designM_AB_initial_list[designB_i - 1]
+                        F_A = designF_A_list[designB_i - 1]
 
-                        designF_A_list[designnum - 1].insertNode(matchedoutput)
+                        M_AB.insertNode_M_AtoB(matchedoutput, self)
+                        if M_AB.getNode_M_B(self) == None:
+                            M_AB.insertNode_M_B(self)
 
-                        matchedoutput.designAtoB_dict[designnum] = self
-                        self.designBtoA_dict[designnum_i] = matchedoutput
+                        F_A.insertNode(matchedoutput)
 
-                        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", designnum, designnum_i, self.name)
+                        matchedoutput.designAtoB_dict[designB_i] = self
+                        self.designBtoA_dict[designA_i] = matchedoutput
+
+                        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", designB_i, designA_i, self.name, ":::",  self.parentstr, matchedoutput.designAtoB_dict)
 
 
 
@@ -307,7 +314,9 @@ class DFConstant(DFNode):
     def __hash__(self):
         return hash(self.value)
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
@@ -380,7 +389,9 @@ class DFIntConst(DFConstant):
             return int(match.group(1), 10)
         return 32
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
@@ -432,7 +443,9 @@ class DFFloatConst(DFConstant):
     def eval(self):
         return float(self.value)
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
@@ -469,7 +482,9 @@ class DFStringConst(DFConstant):
     def eval(self):
         return self.value
 
-    def IDNeighbour(self, preNode, info_str = None):
+    def IDNeighbour(self, preNode, design_i, info_str = None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
@@ -531,20 +546,23 @@ class DFOperator(DFNotTerminal):
     def __hash__(self):
         return hash((self.operator, tuple(self.nextnodes)))
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         for i, n in enumerate(self.nextnodes):
             self.neighbour.append(n)
-            n.IDNeighbour(self, self.operator + str(i))
+            n.IDNeighbour(self, design_i, self.operator + str(i))
         self.parent = preNode
         self.parentstr = info_str
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
 
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+
         for n in self.nextnodes:
-            n.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+            n.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.operator == DFNode.operator and self.parentstr == DFNode.parentstr:
@@ -636,15 +654,17 @@ class DFPartselect(DFNotTerminal):
     def __hash__(self):
         return hash((self.var, self.msb, self.lsb))
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         self.neighbour.append(self.var)
         self.neighbour.append(self.msb)
         self.neighbour.append(self.lsb)
 
-        self.var.IDNeighbour(self, "DFPartselect_var")
-        self.msb.IDNeighbour(self, "DFPartselect_msb")
-        self.lsb.IDNeighbour(self, "DFPartselect_lsb")
+        self.var.IDNeighbour(self, design_i, "DFPartselect_var")
+        self.msb.IDNeighbour(self, design_i, "DFPartselect_msb")
+        self.lsb.IDNeighbour(self, design_i, "DFPartselect_lsb")
 
         self.parent = preNode
         self.parentstr = info_str
@@ -652,10 +672,11 @@ class DFPartselect(DFNotTerminal):
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
 
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
-        self.var.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
-        self.msb.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
-        self.lsb.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+
+        self.var.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+        self.msb.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+        self.lsb.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
@@ -735,13 +756,15 @@ class DFPointer(DFNotTerminal):
     def __hash__(self):
         return hash((self.var, self.ptr))
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         self.neighbour.append(self.var)
         self.neighbour.append(self.ptr)
 
-        self.var.IDNeighbour(self, "DFPointer_var")
-        self.ptr.IDNeighbour(self, "DFPointer_ptr")
+        self.var.IDNeighbour(self, design_i, "DFPointer_var")
+        self.ptr.IDNeighbour(self, design_i, "DFPointer_ptr")
 
         self.parent = preNode
         self.parentstr = info_str
@@ -749,9 +772,10 @@ class DFPointer(DFNotTerminal):
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
 
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
-        self.var.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
-        self.ptr.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+
+        self.var.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+        self.ptr.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
@@ -819,20 +843,23 @@ class DFConcat(DFNotTerminal):
     def __hash__(self):
         return hash(tuple(self.nextnodes))
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         for i, n in enumerate(self.nextnodes):
             self.neighbour.append(n)
-            n.IDNeighbour(self, "DFConcat_" + str(i))
+            n.IDNeighbour(self, design_i, "DFConcat_" + str(i))
         self.parent = preNode
         self.parentstr = info_str
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
 
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+
         for n in self.nextnodes:
-            n.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+            n.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
@@ -944,19 +971,21 @@ class DFBranch(DFNotTerminal):
     def __hash__(self):
         return hash((self.condnode, self.truenode, self.falsenode))
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         if self.condnode is not None:
             self.neighbour.append(self.condnode)
-            self.condnode.IDNeighbour(self, "DFBranch_cond")
+            self.condnode.IDNeighbour(self, design_i, "DFBranch_cond")
 
         if self.truenode is not None:
             self.neighbour.append(self.truenode)
-            self.truenode.IDNeighbour(self, "DFBranch_true")
+            self.truenode.IDNeighbour(self, design_i, "DFBranch_true")
 
         if self.falsenode is not None:
             self.neighbour.append(self.falsenode)
-            self.falsenode.IDNeighbour(self, "DFBranch_false")
+            self.falsenode.IDNeighbour(self, design_i, "DFBranch_false")
 
         self.parent = preNode
         self.parentstr = info_str
@@ -964,15 +993,16 @@ class DFBranch(DFNotTerminal):
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
 
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+
         if self.condnode is not None:
-            self.condnode.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+            self.condnode.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
         if self.truenode is not None:
-            self.truenode.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+            self.truenode.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
         if self.falsenode is not None:
-            self.falsenode.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+            self.falsenode.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
@@ -1076,7 +1106,7 @@ class DFEvalValue(DFNode):
     def __hash__(self):
         return hash((self.value, self.width, self.isfloat, self.isstring))
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
@@ -1121,7 +1151,7 @@ class DFUndefined(DFNode):
     def __hash__(self):
         return hash(self.width)
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
@@ -1166,7 +1196,7 @@ class DFHighImpedance(DFNode):
     def __hash__(self):
         return hash(self.width)
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
@@ -1211,20 +1241,23 @@ class DFDelay(DFNotTerminal):
     def __hash__(self):
         return hash(tuple(self.nextnodes))
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         if self.nextnode is not None:
             self.neighbour.append(self.nextnode)
-            self.nextnode.IDNeighbour(self, "DFDelay")
+            self.nextnode.IDNeighbour(self, design_i, "DFDelay")
         self.parent = preNode
         self.parentstr = info_str
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
 
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+
         if self.nextnode is not None:
-            self.nextnode.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+            self.nextnode.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
@@ -1287,20 +1320,23 @@ class DFSyscall(DFNotTerminal):
     def __hash__(self):
         return hash(tuple(self.nextnodes))
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         self.neighbour.append(preNode)
         for i, n in enumerate(self.nextnodes):
             self.neighbour.append(n)
-            n.IDNeighbour(self, "DFSyscall_" + str(i))
+            n.IDNeighbour(self, design_i, "DFSyscall_" + str(i))
         self.parent = preNode
         self.parentstr = info_str
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
 
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+
         for n in self.nextnodes:
-            n.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+            n.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.syscall == DFNode.syscall and self.parentstr == DFNode.parentstr:
@@ -1548,7 +1584,9 @@ class Bind(object):
         if self.alwaysinfo is None: return ''
         return self.alwaysinfo.getSenslist()
 
-    def IDNeighbour(self, preNode, info_str=None):
+    def IDNeighbour(self, preNode, design_i, info_str=None):
+        self.selfdesignnum = design_i
+
         #if self.dest is not None:
             #self.neighbour.append(self.dest)
             #self.dest.IDNeighbour(self)
@@ -1563,11 +1601,11 @@ class Bind(object):
 
         if self.ptr is not None:
             self.neighbour.append(self.ptr)
-            self.ptr.IDNeighbour(self, "Bind_ptr")
+            self.ptr.IDNeighbour(self, design_i, "Bind_ptr")
 
         if self.tree is not None:
             self.neighbour.append(self.tree)
-            self.tree.IDNeighbour(self, "Bind_tree")
+            self.tree.IDNeighbour(self, design_i, "Bind_tree")
 
         self.parent = self.dest
         self.parentstr = info_str
@@ -1575,13 +1613,13 @@ class Bind(object):
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
 
-    def IDFirstM_AB(self, designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
+    def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
         if self.ptr is not None:
-            self.ptr.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+            self.ptr.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
         if self.tree is not None:
-            self.tree.IDFirstM_AB(designnum, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+            self.tree.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
 
     def MCS_NodeCmp(self, DFNode):

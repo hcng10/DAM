@@ -43,7 +43,7 @@ def generateDataFlow(filelist, topmodule, noreorder, nobind, preprocess_include,
     return analyzer
 
 
-def createScopetoStrMap(design, bindlist, designbiStr_dict_list, designbvStr_dict_list):
+def createScopetoStrMap(design_i, bindlist, designbiStr_dict_list, designbvStr_dict_list):
     designbiStr_dict = {}
     designbvStr_dict = {}
 
@@ -57,72 +57,13 @@ def createScopetoStrMap(design, bindlist, designbiStr_dict_list, designbvStr_dic
 
         #design, termo_set, designMCSOutput_list)
         for bve in bv:
-            bve.IDNeighbour(None)
-
-def calMCSAll(designtermo_set_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list):
-    designMCSOutput_list = [] # this is used to identify the output ports between designs
-
-    designM_AB_initial_list = []
-    designF_A_list = []
-
-    designnum = len(designbiStr_dict_list)
-
-    """ Line 1-2: Initialize M_A, M_B """
-    for design_i in range(0, designnum):
-        # 0-2i: You have to identify the starting common node, and we use the output
-        termo_set = designtermo_set_list[design_i]
-        bindlist_A = designbindlist_list[design_i]
-
-        designMCSOutput_list.append(MCS_Node_Container())
-
-        # there is no need to build that data structure for the last design
-        if design_i != designnum - 1:
-            designM_AB_initial_list.append(MCS_M_AB())
-            designF_A_list.append(MCS_Node_Container())
-
-        for bi, bv in bindlist_A:
-            for bve in bv:
-                ### Complexity: O(Nodes) + O(2 x Nodes) + ... + O(D x Nodes)
-                ###            = O(D^2 x Nodes)
-                ### However since inside "IDFirstM_AB" consists of getNode_M_B, and the worst case is O(Nodes)
-                ### Overall Complexity is O(D^2 x Nodes^2) TODO: better analysis for getNode_M_B
-                bve.IDFirstM_AB(design_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
-
-
-        # 0-2ii: Using bi (bind.dest) to id the common node)
-        ### Complexity: O(D^2 x Nodes)
-        ### if getNode_M_B is involved O(D^2 x Nodes^2)
-        if design_i > 0:
-
-            biStr_dict_B = designbiStr_dict_list[design_i]
-            bvStr_dict_B = designbvStr_dict_list[design_i]
-
-            M_AB = designM_AB_initial_list[design_i - 1]
-            F_A = designF_A_list[design_i - 1]
-
-            for designnum_i in range(0, design_i):
-
-                biStr_dict_A = designbiStr_dict_list[designnum_i]
-                bvStr_dict_A = designbvStr_dict_list[designnum_i]
-
-              ### Complexity O(Nodes) <- Worse case
-                for bi_str, bi in biStr_dict_A.items():
-                    if bi_str in biStr_dict_B:
-                        for bv_num, bv in enumerate(bvStr_dict_A[bi_str]):
-                            M_AB.insertNode_M_AtoB(bv, bvStr_dict_B[bi_str][bv_num])
-                            F_A.insertNode(bv)
-
-                        for bv in bvStr_dict_B[bi_str]:
-                            if M_AB.getNode_M_B(bv) == None:
-                                M_AB.insertNode_M_B(bv)
-
-                            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~bi", design_i, designnum_i, bi_str)
+            bve.IDNeighbour(None, design_i)
 
 
 
 #def findMCSwTwo(biStr_dict_A, bvStr_dict_A, biStr_dict_B, bvStr_dict_B):
 
-def findMCSwTwo(M_AB, F_A):
+def findMCSwTwo(M_AB, F_A, designB_i):
 
     commonNode_count = 0
 
@@ -137,107 +78,201 @@ def findMCSwTwo(M_AB, F_A):
     # (no need to check if it is in M_A bcos there is no way that a bind object will be next to another bind object)
     for fa in M_AB.getNodes_M_A_List():
         for f in fa.neighbour:
-            D_A.insertNode(f) # insert at position 0
-        #print("what kind of neighbour u got>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", fa.dest, fa, f.tostr(), len(fa.neighbour))
-        #print(D_A)
+            if F_A.getNode(f) == None:
+                D_A.insertNode(f) # insert at position 0
+
+        #print("what kind of neighbour u got>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",fa, f.tostr(), len(fa.neighbour))
 
     # Real deal of the algorithms starts here
     # Line 4: choose d_a
     while D_A.isEmpty() == False:
         print("\n DA content ------>", D_A.ranking)
         d_a = D_A.chooseNode()
-        # get all the neighbour that has been matched (i.e. M_A)....which means u will have corresponding node in
-        # line 7-8: filling Nb, at the same time doing Lb(cb) = La(da)
-        d_a_neighbour = []
-        for d_a_prime in d_a.neighbour:
-            if M_AB.getNode_M_A(d_a_prime) != None:
-                N_B.append(M_AB.map_M_A_to_M_B(d_a_prime))
+        # A: check if it is a node in non-0 design
+        # B: check if it is a matched node
+        #if d_a.selfdesignnum != 0 and d_a.designBtoA_dict == False:
+        if not (d_a.selfdesignnum == 0 or (d_a.selfdesignnum != 0 and bool(d_a.designBtoA_dict) == False)):
+            F_A.insertNode(d_a)
+        else:
+            # get all the neighbour that has been matched (i.e. M_A)....which means u will have corresponding node in
+            # line 7-8: filling Nb, at the same time doing Lb(cb) = La(da)
+            d_a_neighbour = []
+            for d_a_prime in d_a.neighbour:
+                if M_AB.getNode_M_A(d_a_prime) != None:
+                    N_B.append(M_AB.map_M_A_to_M_B(d_a_prime))
 
-            # build a dictionary structure for line 11-12
-            d_a_neighbour.append(d_a_prime)
-        print("N_B, d_a", N_B, d_a)
+                # build a dictionary structure for line 11-12
+                d_a_neighbour.append(d_a_prime)
+            print("N_B, d_a", N_B, d_a, """:::""", d_a.parentstr)
 
-        C_B_prev = MCS_Node_Container()
-        C_B_curr = MCS_Node_Container()
-
-        # line 8-9
-        while len(N_B) != 0:
-            n_b = N_B.pop()
-            #iterate all the neighbour
-            for potential_c_b in n_b.neighbour: # <-- check all Cb must be a neighbour of Nb
-                                                # (we do it from the Nb perspective, so we don't need to check all nodes)
-                #print("potential cb in loop -------> ", potential_c_b)
-                #print(".............................................", not M_AB.getNode_M_B(potential_c_b), d_a.MCS_NodeCmp(potential_c_b), potential_c_b, sys.getsizeof(potential_c_b))
-                if  M_AB.getNode_M_B(potential_c_b) == None and d_a.MCS_NodeCmp(potential_c_b):# <-- Cb not in range of Mab,
-                                                                                          # and L_B(C_B) = L_A(D_A)
-                    #print("potential cb put in list -------> ", potential_c_b)
-                    if C_B_prev.isEmpty() or C_B_prev.getNode(potential_c_b) != None:
-                        C_B_curr.insertNode(potential_c_b)
-
-            C_B_prev = C_B_curr
+            C_B_prev = MCS_Node_Container()
             C_B_curr = MCS_Node_Container()
 
-        print("The final cb list -------> ", C_B_prev.d)
-        #for ii,iv in C_B_prev.d.items():
-            #print("The final cb list in str -------> ", ii.tostr())
+            # line 8-9
+            while len(N_B) != 0:
+                n_b = N_B.pop()
+                #iterate all the neighbour
+                for potential_c_b in n_b.neighbour: # <-- check all Cb must be a neighbour of Nb
+                                                    # (we do it from the Nb perspective, so we don't need to check all nodes)
+                    #print("potential cb in loop -------> ", potential_c_b)
+                    #print(".............................................", not M_AB.getNode_M_B(potential_c_b), d_a.MCS_NodeCmp(potential_c_b), potential_c_b, sys.getsizeof(potential_c_b))
+                    if  M_AB.getNode_M_B(potential_c_b) == None and d_a.MCS_NodeCmp(potential_c_b):# <-- Cb not in range of Mab,
+                                                                                              # and L_B(C_B) = L_A(D_A)
+                        #print("potential cb put in list -------> ", potential_c_b)
+                        if C_B_prev.isEmpty() or C_B_prev.getNode(potential_c_b) != None:
+                            C_B_curr.insertNode(potential_c_b)
+
+                C_B_prev = C_B_curr
+                C_B_curr = MCS_Node_Container()
+
+            print("The final cb list -------> ", C_B_prev.d)
+            #for ii,iv in C_B_prev.d.items():
+                #print("The final cb list in str -------> ", ii.tostr())
 
 
-        # line 10: choosing c'b
-        c_b_prime = None
-        if not C_B_prev.isEmpty():
-            C_B_list = C_B_prev.getNodesinList()
-            if C_B_prev.getLength() == 1:
-                c_b_prime = C_B_list[0]
-            else:
-                c_b_prime_neighbour_num = 0
+            # line 10: choosing c'b
+            c_b_prime = None
+            if not C_B_prev.isEmpty():
+                C_B_list = C_B_prev.getNodesinList()
+                if C_B_prev.getLength() == 1:
+                    c_b_prime = C_B_list[0]
+                else:
+                    c_b_prime_neighbour_num = 0
 
-                # line 11-12
-                for c_b_prime_e in C_B_list:
-                    cur_num = 0
-                    for c_b_prime_e_neighbour in c_b_prime_e.neighbour:
-                        #TODO make the comparision with type, possibly some values :( Make due for now
-                        # Well, it will still be polynomial time if u check every pair of neighbour, I think
-                        # E(b', dA) < E(b, dA)
-                        #print("Now working on E(b', dA) < E(b, dA) ~~c_b_prime_e, c_b_prime_neighbour ------->", c_b_prime_e, c_b_prime_e_neighbour)
-                        for i in range(len(d_a_neighbour) - 1, -1, -1):
-                            if c_b_prime_e_neighbour.MCS_NodeCmp(d_a_neighbour[i]):
-                                #print("The node is found to be the same as the neighbour of da ~~d_a_neighbour-------> ", d_a_neighbour[i])
-                                del d_a_neighbour[i]
-                                cur_num = cur_num + 1
+                    # line 11-12
+                    for c_b_prime_e in C_B_list:
+                        cur_num = 0
+                        for c_b_prime_e_neighbour in c_b_prime_e.neighbour:
+                            #TODO make the comparision with type, possibly some values :( Make due for now
+                            # Well, it will still be polynomial time if u check every pair of neighbour, I think
+                            # E(b', dA) < E(b, dA)
+                            #print("Now working on E(b', dA) < E(b, dA) ~~c_b_prime_e, c_b_prime_neighbour ------->", c_b_prime_e, c_b_prime_e_neighbour)
+                            for i in range(len(d_a_neighbour) - 1, -1, -1):
+                                if c_b_prime_e_neighbour.MCS_NodeCmp(d_a_neighbour[i]):
+                                    #print("The node is found to be the same as the neighbour of da ~~d_a_neighbour-------> ", d_a_neighbour[i])
+                                    del d_a_neighbour[i]
+                                    cur_num = cur_num + 1
 
-                    if cur_num > c_b_prime_neighbour_num:
-                        c_b_prime = c_b_prime_e
+                        if cur_num > c_b_prime_neighbour_num:
+                            c_b_prime = c_b_prime_e
 
-            print("The chosen c_b_prime (with the content in string) -------> ", c_b_prime, c_b_prime.tostr(), ":::",  c_b_prime.parentstr)
+                print("The chosen c_b_prime (with the content in string) -------> ", c_b_prime, c_b_prime.tostr(), ":::",  c_b_prime.parentstr)
 
-            # line 13
-            M_AB.insertNode_M_A(d_a, c_b_prime)
-            M_AB.insertNode_M_B(c_b_prime)
+                # line 13
+                M_AB.insertNode_M_AtoB(d_a, c_b_prime)
+                M_AB.insertNode_M_B(c_b_prime)
 
-            commonNode_count = commonNode_count + 1
-
-            #line 14, get the neighbours of neighbours :(
-            for d_a_neighbour in d_a.neighbour:
-                for d_a_neighbour_neighbour in d_a_neighbour.neighbour:
-                    # still be polynomial time if u navigate the D_A every time
-                    if d_a_neighbour_neighbour != d_a:
-                        D_A.lowerNode(d_a_neighbour_neighbour)
-
-            #line 15, insert d_a_neighbour
-            for d_a_neighbour in d_a.neighbour:
-                # This checking is equivalent to U_A, which is not in F_A and D_A
-                if D_A.getNode(d_a_neighbour) == None and F_A.getNode(d_a_neighbour) == None:
-                    D_A.insertNode(d_a_neighbour)
+                # Mark the pointers between nodes
+                # Mark it on all the nodes that d_a is already matched
+                for d_a_matched_i, d_a_matched in d_a.designAtoB_dict.items():
+                    d_a_matched.designAtoB_dict[designB_i] = c_b_prime
+                    c_b_prime.designBtoA_dict[d_a_matched_i] = d_a_matched
 
 
-            F_A.insertNode(d_a)
+                d_a.designAtoB_dict[designB_i] =  c_b_prime
+                c_b_prime.designBtoA_dict[d_a.selfdesignnum] = d_a
+
+                print("Pointers designB_i-------> ", 'A', designB_i, d_a.designAtoB_dict, 'B', d_a.selfdesignnum, c_b_prime.designBtoA_dict)
+
+                commonNode_count = commonNode_count + 1
+
+                #line 14, get the neighbours of neighbours :(
+                for d_a_neighbour in d_a.neighbour:
+                    for d_a_neighbour_neighbour in d_a_neighbour.neighbour:
+                        # still be polynomial time if u navigate the D_A every time
+                        if d_a_neighbour_neighbour != d_a:
+                            D_A.lowerNode(d_a_neighbour_neighbour)
+
+                #line 15, insert d_a_neighbour
+                for d_a_neighbour in d_a.neighbour:
+                    # This checking is equivalent to U_A, which is not in F_A and D_A
+                    if D_A.getNode(d_a_neighbour) == None and F_A.getNode(d_a_neighbour) == None:
+                        D_A.insertNode(d_a_neighbour)
+
+
+                F_A.insertNode(d_a)
 
 
     print("The final mcs node count: ", commonNode_count)
 
-    return [M_AB, commonNode_count]
+    #return [M_AB, commonNode_count]
 
 
+# In each node, there will be "designAtoB_dict" and "designBtoA_dict" data structure
+# designAtoB_dict:
+#                   It points to the matched node and the key of the dictionary is the design number that the node is in
+# designBtoA_dict:
+#                   It points back
+
+def calMCSAll(designtermo_set_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list):
+    designMCSOutput_list = [] # this is used to identify the output ports between designs
+
+    designM_AB_initial_list = []
+    designF_A_list = []
+
+    designnum = len(designbiStr_dict_list)
+
+    """ Line 1-2: Initialize M_A, M_B
+    """
+    # 0-2i: natvigate the entire graphs across designs to find the common nodes
+    for designB_i in range(0, designnum):
+        # 0-2i: You have to identify the starting common node, and we use the output
+        termo_set = designtermo_set_list[designB_i]
+        bindlist_B = designbindlist_list[designB_i]
+
+        designMCSOutput_list.append(MCS_Node_Container())
+
+        # For B as design number 1, u stored it as 0 for the combined graph
+        if designB_i != designnum - 1:
+            designM_AB_initial_list.append(MCS_M_AB())
+            designF_A_list.append(MCS_Node_Container())
+
+        for biB, bvB in bindlist_B:
+            for bveB in bvB:
+                ### Complexity: O(Nodes) + O(2 x Nodes) + ... + O(D x Nodes)
+                ###            = O(D^2 x Nodes)
+                ### However since inside "IDFirstM_AB" consists of getNode_M_B, and the worst case is O(Nodes)
+                ### Overall Complexity is O(D^2 x Nodes^2) TODO: better analysis for getNode_M_B
+                bveB.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+
+
+
+        # remember the entire thing is done with the "being matched node" perspective
+
+        # 0-2ii: Using bi (bind.dest) to id the common node)
+        ### Complexity: O(D^2 x Nodes)
+        ### if getNode_M_B is involved O(D^2 x Nodes^2)
+        if designB_i > 0:
+
+            biStr_dict_B = designbiStr_dict_list[designB_i]
+            bvStr_dict_B = designbvStr_dict_list[designB_i]
+
+            M_AB = designM_AB_initial_list[designB_i - 1]
+            F_A = designF_A_list[designB_i - 1]
+
+            for designA_i in range(0, designB_i):
+
+                biStr_dict_A = designbiStr_dict_list[designA_i]
+                bvStr_dict_A = designbvStr_dict_list[designA_i]
+
+              ### Complexity O(Nodes) <- Worse case
+                for bi_strA, biA in biStr_dict_A.items():
+                    if bi_strA in biStr_dict_B:
+
+                        for bv_numA, bvA in enumerate(bvStr_dict_A[bi_strA]):
+                            M_AB.insertNode_M_AtoB(bvA, bvStr_dict_B[bi_strA][bv_numA])
+                            F_A.insertNode(bvA)
+
+                            bvA.designAtoB_dict[designB_i] =  bvStr_dict_B[bi_strA][bv_numA]
+                            bvStr_dict_B[bi_strA][bv_numA].designBtoA_dict[designA_i] = bvA
+
+                            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~bi", designB_i, designA_i, bi_strA, bvA.designAtoB_dict)
+
+                        for bvB in bvStr_dict_B[bi_strA]:
+                            if M_AB.getNode_M_B(bvB) == None:
+                                M_AB.insertNode_M_B(bvB)
+
+            findMCSwTwo(M_AB, F_A, designB_i)
 
 """
     Get the list of signals from each design, and compared it with the signal previous designs
@@ -570,14 +605,14 @@ def main():
 
     # get the bind tree first
     designbindlist_list = []
-    for design, analyzer in enumerate(designanalyzer_list):
+    for design_i, analyzer in enumerate(designanalyzer_list):
         # sorting will cause O(nlogn), where n is the number of bindtree (head)
         bindlist = sorted(analyzer.getBinddict().items(),key=lambda x:str(x[0])) #traverse bindtree + 1
         designbindlist_list.append(bindlist)
 
         # 0-1
         # let all the nodes find out who their neighbour as well
-        createScopetoStrMap(design, bindlist, designbiStr_dict_list, designbvStr_dict_list)
+        createScopetoStrMap(design_i, bindlist, designbiStr_dict_list, designbvStr_dict_list)
 
 
     # 0-2
