@@ -26,6 +26,10 @@ from pyverilog.dataflow.dataflow import  DesignBindDest
 from generateMuxTemplate import *
 
 
+MCSAssignFile = "~/ICL/overlay/muxExample/mcsassign.v"
+MCSAssignFileTop = "mcsassign"
+
+
 ConcatFile = "~/ICL/overlay/muxExample/concat.v"
 ConcatFileTop = "concat"
 
@@ -57,11 +61,11 @@ def createScopetoStrMap(design_i, bindlist, designbiStr_dict_list, designbvStr_d
 
         #design, termo_set, designMCSOutput_list)
         for bve in bv:
-            bve.IDNeighbour(None, design_i)
+            bve.IDNeighbour(None,  bi.scopechain, design_i)
 
 
 
-#def findMCSwTwo(biStr_dict_A, bvStr_dict_A, biStr_dict_B, bvStr_dict_B):
+
 
 def findMCSwTwo(M_AB, F_A, designB_i):
 
@@ -168,9 +172,16 @@ def findMCSwTwo(M_AB, F_A, designB_i):
                     d_a_matched.designAtoB_dict[designB_i] = c_b_prime
                     c_b_prime.designBtoA_dict[d_a_matched_i] = d_a_matched
 
+                    c_b_prime.matchedcnt = c_b_prime.matchedcnt + 1
+                    d_a_matched.matchedcnt = d_a_matched.matchedcnt + 1
+
+
 
                 d_a.designAtoB_dict[designB_i] =  c_b_prime
                 c_b_prime.designBtoA_dict[d_a.selfdesignnum] = d_a
+
+                c_b_prime.matchedcnt = c_b_prime.matchedcnt + 1
+                d_a.matchedcnt = d_a.matchedcnt + 1
 
                 print("Pointers designB_i-------> ", 'A', designB_i, d_a.designAtoB_dict, 'B', d_a.selfdesignnum, c_b_prime.designBtoA_dict)
 
@@ -195,16 +206,59 @@ def findMCSwTwo(M_AB, F_A, designB_i):
 
     print("The final mcs node count: ", commonNode_count)
 
-    #return [M_AB, commonNode_count]
 
 
-# In each node, there will be "designAtoB_dict" and "designBtoA_dict" data structure
-# designAtoB_dict:
-#                   It points to the matched node and the key of the dictionary is the design number that the node is in
-# designBtoA_dict:
-#                   It points back
 
-def calMCSAll(designtermo_set_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list):
+def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, MCSassign_analyzer):
+
+    MCSsig_cnt = 0
+    MCSbinddict_list = []
+    MCScommonbinddict = {}
+
+    for di in range(0, designnum):
+        MCSbinddict_list.append({})
+
+    for hi, headnode in enumerate(mcshead_list):
+        print('\n')
+        print(headnode.selfdesignnum, end=' ')
+        headnode.toPrint()
+
+        [MCSsig_cnt,ret_mcs_breakpt, ret_terminal_node] = \
+            headnode.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer)
+
+    for di in range(0, designnum):
+        print('\n')
+
+        for bi, bv in designbinddict_list[di].items():
+            for bve in bv:
+                print(di, bi, bve.tostr())
+
+        print('seperated......................\n')
+
+        for bi, bv in MCSbinddict_list[di].items():
+            for bve in bv:
+                print("--------->",di, bi, bve.tostr())
+
+    print('common......................\n')
+    for bi, bv in MCScommonbinddict.items():
+        for bve in bv:
+            print(bi, bve.tostr())
+
+    print('\n')
+
+    return [designbinddict_list, MCScommonbinddict, ]
+
+
+"""
+    In each node, there will be "designAtoB_dict" and "designBtoA_dict" data structure
+    designAtoB_dict:
+                   It points to the matched node and the key of the dictionary is the design number that the node is in
+    designBtoA_dict:
+                   It points back
+"""
+
+
+def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer):
     designMCSOutput_list = [] # this is used to identify the output ports between designs
 
     designM_AB_initial_list = []
@@ -214,7 +268,7 @@ def calMCSAll(designtermo_set_list, designbindlist_list, designbiStr_dict_list, 
 
     """ Line 1-2: Initialize M_A, M_B
     """
-    # 0-2i: natvigate the entire graphs across designs to find the common nodes
+    # 0-2i: navigate the entire graphs across designs to find the common nodes
     for designB_i in range(0, designnum):
         # 0-2i: You have to identify the starting common node, and we use the output
         termo_set = designtermo_set_list[designB_i]
@@ -266,6 +320,10 @@ def calMCSAll(designtermo_set_list, designbindlist_list, designbiStr_dict_list, 
                             bvA.designAtoB_dict[designB_i] =  bvStr_dict_B[bi_strA][bv_numA]
                             bvStr_dict_B[bi_strA][bv_numA].designBtoA_dict[designA_i] = bvA
 
+                            # the number of time that a node is matched, extra info for now
+                            bvStr_dict_B[bi_strA][bv_numA].matchedcnt = bvStr_dict_B[bi_strA][bv_numA].matchedcnt + 1
+                            bvA.matchedcnt = bvA.matchedcnt + 1
+
                             print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~bi", designB_i, designA_i, bi_strA, bvA.designAtoB_dict)
 
                         for bvB in bvStr_dict_B[bi_strA]:
@@ -273,6 +331,61 @@ def calMCSAll(designtermo_set_list, designbindlist_list, designbiStr_dict_list, 
                                 M_AB.insertNode_M_B(bvB)
 
             findMCSwTwo(M_AB, F_A, designB_i)
+
+
+
+    """ Here is the heuristic, merge the graph where it forms the biggest mcs / biggest matched, so as to minimize the
+        total resource consumption
+
+        Using normalization to do the calculation
+        A =  mcs size / max mcs size
+        B =  match num / (design_num * mcs size)
+
+        But the original plan is to get the biggest graph
+    """
+    nextnodetochk_list = []
+
+    for designA_i in range(0, designnum - 1):
+        bindlist_A = designbindlist_list[designA_i]
+
+        for biA, bvA in bindlist_A:
+            for bveA in bvA:
+                nextnodetochk_list.append(bveA)
+
+    mcshead_list = []
+    while(len(nextnodetochk_list) != 0):
+        headnode = nextnodetochk_list.pop(0)
+        mcshead_list = mcshead_list + headnode.findGraphSize(designnum)
+
+
+    # calculate the magic value, represented as h_num
+    maxgraph_size = 0
+    for mcsheadnode in mcshead_list:
+        if maxgraph_size < mcsheadnode.graphsize: maxgraph_size = mcsheadnode.graphsize
+
+
+    for mcshead_i in range(len(mcshead_list) - 1, -1, -1):
+
+        mcsheadnode = mcshead_list[mcshead_i]
+
+        if mcsheadnode.graphsize == 1:
+            del mcshead_list[mcshead_i]
+        else:
+            mcsheadnode.h_num = (mcsheadnode.graphsize / float(maxgraph_size)) + (
+                mcsheadnode.matchsize / float(designnum * mcsheadnode.graphsize))
+
+
+    mcshead_list.sort(key=lambda x: x.h_num, reverse=True)
+
+    for node in mcshead_list:
+        print("MCS head->>>>>>>>>>>>>>>>>2nd", node.selfdesignnum, node, node.graphsize, node.matchsize, node.matcheddesign, node.h_num)
+
+
+    mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, MCSassign_analyzer)
+
+
+
+
 
 """
     Get the list of signals from each design, and compared it with the signal previous designs
@@ -604,10 +717,15 @@ def main():
     designbvStr_dict_list = []
 
     # get the bind tree first
+    designbinddict_list = []
     designbindlist_list = []
+
     for design_i, analyzer in enumerate(designanalyzer_list):
         # sorting will cause O(nlogn), where n is the number of bindtree (head)
-        bindlist = sorted(analyzer.getBinddict().items(),key=lambda x:str(x[0])) #traverse bindtree + 1
+        binddict = analyzer.getBinddict()
+        bindlist = sorted(binddict.items(),key=lambda x:str(x[0])) #traverse bindtree + 1
+
+        designbinddict_list.append(binddict)
         designbindlist_list.append(bindlist)
 
         # 0-1
@@ -617,30 +735,13 @@ def main():
 
     # 0-2
     # Get MCS step by step
-    calMCSAll(designtermo_set_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list)
+    MCSassign_analyzer = generateDataFlow(MCSAssignFile, MCSAssignFileTop,
+                                            noreorder=False,
+                                            nobind=False,
+                                            preprocess_include=[],
+                                            preprocess_define=[])
 
-    designnum = len(designbiStr_dict_list)
-
-    # Initializing an array for storing returned values
-    mcs_list = {}
-    msc_cnt = {}
-
-    for design_i in range(0, designnum):
-        for design_j in range(design_i + 1, designnum):
-
-            if design_i not in mcs_list:
-                mcs_list[design_i] = {}
-                msc_cnt[design_i] = {}
-
-            if design_j not in mcs_list[design_i]:
-                mcs_list[design_i][design_j] = {}
-                msc_cnt[design_i][design_j] = {}
-
-
-            #[mcs_list[design_i][design_j], msc_cnt[design_i][design_j]] = findMCSwTwo(\
-                        #designbiStr_dict_list[design_i], designbvStr_dict_list[design_i], \
-                        #designbiStr_dict_list[design_j], designbvStr_dict_list[design_j])
-
+    calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer)
 
 
 
@@ -648,6 +749,7 @@ def main():
     1st: Parse a file to obtain concat structure and PartSelect select
 
     """
+
     concatanalyzer = generateDataFlow(ConcatFile, ConcatFileTop,
                                             noreorder=False,
                                             nobind=False,

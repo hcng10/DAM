@@ -65,8 +65,9 @@ class DFNode(object):
         return not self.__eq__(other)
     def __hash__(self):
         return id(self)
-    #design, termo_set, designMCSOutput_list,
-    def IDNeighbour(self, preNode, design_i, info_str=None): pass
+    def toPrint(self): pass
+    # finding mcs and corresponding code generation
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None): pass
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list): pass
     def MCS_NodeCmp(self, DFNode): pass
 
@@ -82,6 +83,311 @@ class DFNode(object):
     def rmvOldConnectNewNode(self, originalterminal, newtree): pass
     def bindDestBrModify(self, options, bindBrIdfyDict, designnum, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, isCond, preNode = None, info_op = None): pass
 
+    def findGraphSizeGoDeep(self, n, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt):
+
+        [ret_case, dummy_head, ret_matcheddesign_i_list, ret_node_cnt, ret_match_cnt] = \
+            n.findGraphSize(designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        if ret_case == MCS_NODE_SAME:
+            arg_matcheddesign_i_list = ret_matcheddesign_i_list
+            arg_node_cnt = ret_node_cnt
+            arg_match_cnt = ret_match_cnt
+
+        return [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
+
+    """
+    findGraphSize: determine the size of the mcs
+    pre:
+        designnum: the number of design
+        subgraphhead_list: a list that contains all the nodes that are ID as head during the finding process
+        current_head: the head of the graph that I am trying to extend
+        prenode_matcheddesign: a list that contains True/ False, where the position indicates the design number
+        node_cnt: the number of node spotted in the same subgraph so far
+    post:
+        ret_head: A: current_head: means this node is part of the prenode mcs
+                  B: None: current node cannot be matched anywhere
+                  C: self: I form a new head
+
+    """
+
+    def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
+
+
+        update_mcsnode_cnt = mcsnode_cnt
+
+        pre_selfnode_matcheddesign_i_list = []
+        selfnode_matcheddesign_i_list = []
+
+        update_mcsmatch_cnt_same = mcsmatch_cnt
+        update_mcsmatch_cnt_new = 0
+
+        # Perform Analysis first
+        for designmatched_i in range(0, designnum):
+
+            # case 1: prenode and self are in the same sub-tree
+            if current_head != None:  # first you got to ensure that u are part of the mcs to be investigated
+                if prenode_matcheddesign_i_list[designmatched_i] == True \
+                        and designmatched_i in self.designAtoB_dict:
+
+                    update_mcsnode_cnt = mcsnode_cnt + 1
+                    update_mcsmatch_cnt_same = update_mcsmatch_cnt_same + 1 # matched cnt is based on subtree context
+
+                    pre_selfnode_matcheddesign_i_list.append(True)
+                else:
+                    pre_selfnode_matcheddesign_i_list.append(False)
+
+            if designmatched_i in self.designAtoB_dict and designmatched_i != self.selfdesignnum:
+
+                update_mcsmatch_cnt_new = update_mcsmatch_cnt_new + 1
+                selfnode_matcheddesign_i_list.append(True)
+            else:
+                selfnode_matcheddesign_i_list.append(False)
+
+
+        # Mark the case first, then handle afterwards
+        if update_mcsnode_cnt == mcsnode_cnt:  # case 0: prenode and self are not in the same subgraph
+
+            if self.designAtoB_dict:  # case 0A: check if this node can be matched
+                ret_case = MCS_NODE_HEAD
+            else:  # case 0B: cannot even be matched, self is an individual node
+                ret_case = MCS_NODE_UNMATCHED
+        else:  # case 1: prenode and self are in the same sub-tree
+            ret_case = MCS_NODE_SAME
+
+
+        # Make proper action based on the case
+        if ret_case == MCS_NODE_HEAD:
+            mcshead_list.append(self)
+
+            ret_head = self
+            ret_matcheddesign_i_list = selfnode_matcheddesign_i_list
+            ret_mcsnode_cnt = 1
+            ret_mcsmatch_cnt = update_mcsmatch_cnt_new
+
+            self.graphsize = 1
+            self.matchsize = update_mcsmatch_cnt_new
+            self.matcheddesign = selfnode_matcheddesign_i_list
+            self.mcs_breakpt = True
+
+        elif ret_case == MCS_NODE_UNMATCHED:
+
+            ret_head = None
+            ret_matcheddesign_i_list = None
+            ret_mcsnode_cnt = 0
+            ret_mcsmatch_cnt = 0
+            self.mcs_breakpt = True
+
+        else:
+
+            ret_head = current_head
+            ret_matcheddesign_i_list = pre_selfnode_matcheddesign_i_list
+            ret_mcsnode_cnt = update_mcsnode_cnt
+            ret_mcsmatch_cnt = update_mcsmatch_cnt_same
+
+            current_head.graphsize = update_mcsnode_cnt
+            current_head.matchsize = update_mcsmatch_cnt_same
+            current_head.matcheddesign = pre_selfnode_matcheddesign_i_list
+            self.mcs_breakpt = False
+
+        return [ret_case, ret_head, ret_matcheddesign_i_list, ret_mcsnode_cnt, ret_mcsmatch_cnt]
+
+
+    def MCSBindGenSplitHead(self, new_node, old_node): pass
+
+
+    def MCSsplitNode(self, MCSsig_cnt, MCScommonbinddict, MCSassign_analyzer):
+
+        MCSassign_copied = copy.deepcopy(MCSassign_analyzer.getBinddict())
+        self_Scopechain = copy.deepcopy(self.headScope)
+
+        for mcsa_i, mcsa_v in MCSassign_copied.items():
+            # use the terminal to replace me
+
+            terminal_node = mcsa_v[0].tree
+            terminal_node.name.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
+            terminal_node.name.scopechain = self_Scopechain[:-1] + [terminal_node.name.scopechain[-1]]
+            mcsa_v[0].tree = self
+
+            mcsa_i.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
+            mcsa_i.scopechain = self_Scopechain[:-1] + [mcsa_i.scopechain[-1]]
+
+            MCScommonbinddict[mcsa_i] = mcsa_v
+
+            self.parent.MCSBindGenSplitHead(terminal_node, self)
+            self.parent = mcsa_v[0]
+
+        self.MCSbindgen_nodesplit = True
+
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None): pass
+
+
+    def MCSBindGenDFNode(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+
+        if self.MCSbindgen_visited == True:
+            print("Terminal already visited.....", end=' ')
+            self.toPrint()
+            return [MCSsig_cnt, False, None]
+
+
+        # No need to go down bcos if it is a mcs, it will be visited again
+        if M_B_bool != None or (self.mcs_breakpt == True and id(self) != id(headnode)):
+            if M_B_bool != None:
+                print("--> M_B_bool: Terminal got to be redirected.....",  "mcs_sig" + str(MCSsig_cnt), ".....", end=' ')
+            else:
+                print("Terminal got to be redirected.....", end=' ')
+            self.toPrint()
+
+            MCSassign_copied = copy.deepcopy(MCSassign_analyzer.getBinddict())
+
+            self_Scopechain = copy.deepcopy(self.headScope)
+
+            # since there is one element in the list, the loop is going to iterate once only
+            for mcsa_i, mcsa_v in MCSassign_copied.items():
+                #print(mcsa_v[0].tree, mcsa_v[0].dest, mcsa_i.scopechain, self_Scopechain)
+
+                # use the terminal to replace me
+                terminal_node = mcsa_v[0].tree
+                terminal_node.name.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
+                terminal_node.name.scopechain = self_Scopechain[:-1] + [terminal_node.name.scopechain[-1]]
+                mcsa_v[0].tree = self
+
+                # make it point to binddest (changing mcsa_i.scopechain will also change mcsa_v[0].dest)
+                mcsa_i.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
+                mcsa_i.scopechain = self_Scopechain[:-1] + [mcsa_i.scopechain[-1]]
+
+                # print(mcsa_v[0].tree, mcsa_v[0].dest, mcsa_i.scopechain, self.parentstr)
+
+
+                MCSbinddict_list[self.selfdesignnum][mcsa_i] = mcsa_v
+                self.parent = mcsa_v[0]
+
+                MCSsig_cnt = MCSsig_cnt + 1
+
+            return [MCSsig_cnt, True, terminal_node]
+
+        # I am the head case, or it is in the same MCS
+        else:
+            # jmp to the corresponding node in the other sub-tree
+            print("Terminal stays the same.....", end=' ')
+            self.toPrint()
+
+            self.MCSbindgen_visited = True
+
+            for di, dv in enumerate(headnode.matcheddesign):
+                if dv == True:
+                    self.designAtoB_dict[di].MCSbindgen_visited = True
+
+            return [MCSsig_cnt, self.mcs_breakpt, None]
+
+
+    def MCSBindGenDFNotTerminal(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, \
+                                children_list, childrenstr_list, children_can_diff, M_B_bool=None):
+        #if M_B_bool != None:
+        if self.MCSbindgen_visited == True:
+            print("Node already visited.....", end=' ')
+            self.toPrint()
+            return [MCSsig_cnt, False, None, None]
+
+
+        if M_B_bool != None or (self.mcs_breakpt == True and id(self) != id(headnode)):
+            if M_B_bool != None:
+                print("---> M_B_bool: Node got to be redirected.....",  "mcs_sig" + str(MCSsig_cnt) , ".....",end=' ')
+            else:
+                print("Node got to be redirected.....", end=' ')
+            self.toPrint()
+
+            MCSassign_copied = copy.deepcopy(MCSassign_analyzer.getBinddict())
+
+            self_Scopechain = copy.deepcopy(self.headScope)
+
+            for mcsa_i, mcsa_v in MCSassign_copied.items():
+                #print(mcsa_v[0].tree, mcsa_v[0].dest, mcsa_i.scopechain, self_Scopechain)
+
+                # use the terminal to replace me
+                terminal_node = mcsa_v[0].tree
+                terminal_node.name.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
+                terminal_node.name.scopechain = self_Scopechain[:-1] + [terminal_node.name.scopechain[-1]]
+                mcsa_v[0].tree = self
+
+                # make it point to binddest (changing mcsa_i.scopechain will also change mcsa_v[0].dest)
+                mcsa_i.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
+                mcsa_i.scopechain = self_Scopechain[:-1] + [mcsa_i.scopechain[-1]]
+
+                # print(mcsa_v[0].tree, mcsa_v[0].dest, mcsa_i.scopechain, self.parentstr)
+
+                MCSbinddict_list[self.selfdesignnum][mcsa_i] = mcsa_v
+                self.parent = mcsa_v[0]
+
+                MCSsig_cnt = MCSsig_cnt + 1
+
+            self.MCSbindgen_nodesplit = True
+            return [MCSsig_cnt, True, terminal_node, None]
+
+        else:
+            print("Node stays the same.....", end=' ')
+            self.toPrint()
+
+            #case that I am a head node, that means I have to split and form new tree
+            if id(self) == id(headnode):
+                #if type(self.parent) != Bind:
+
+                if self.MCSbindgen_nodesplit == False:
+                    print(".....I got to split to node.....", end=' ')
+                    self.toPrint()
+
+                    self.MCSsplitNode(MCSsig_cnt, MCScommonbinddict, MCSassign_analyzer)
+
+                    for di, dv in enumerate(headnode.matcheddesign):
+                        if dv == True:
+                            if self.designAtoB_dict[di].MCSbindgen_nodesplit == True:
+                                sys.stderr.write(str(type(self)) + ": my neighbour should not have formed new head by himself, exit!")
+                                exit()
+
+                            else:
+                                self.designAtoB_dict[di].MCSsplitNode(MCSsig_cnt, MCScommonbinddict, MCSassign_analyzer)
+
+
+                    MCSsig_cnt = MCSsig_cnt + 1
+
+
+
+            # jmp to the corresponding node in the other sub-tree
+            self.MCSbindgen_visited = True
+            for di, dv in enumerate(headnode.matcheddesign):
+                if dv == True:
+                    self.designAtoB_dict[di].MCSbindgen_visited = True
+
+            ret_children_list = []
+            for childi, child in enumerate(children_list):
+                if child is not None:
+                    [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
+                        child.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
+
+
+                    if children_can_diff == True:
+                        # You got to jump to other node to fix other nodes as well
+                        if ret_mcs_breakpt == True:
+                            for di, dv in enumerate(headnode.matcheddesign):
+                                if dv == True:
+                                    self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer,
+                                                                          childrenstr_list[childi])
+
+                            #MCSsig_cnt = ret_MCSsig_cnt
+
+                            ret_children_list.append(ret_terminal_node)
+
+                        else:
+                            ret_children_list.append(child)
+
+                        MCSsig_cnt = ret_MCSsig_cnt
+                    else:
+                        if ret_mcs_breakpt == True:
+                            sys.stderr.write(type(self), ": Children are not the same between designs, exit!")
+                            exit()
+
+
+            return [MCSsig_cnt, self.mcs_breakpt, None, ret_children_list]
 
 
 class DFTerminal(DFNode):
@@ -116,15 +422,29 @@ class DFTerminal(DFNode):
     def __hash__(self):
         return hash(self.name)
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        ret = ''
+        for n in self.name:
+            ret += str(n) + '.'
+        print(str(self.selfdesignnum), ret[:-1])
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = self.tostr()
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
@@ -155,6 +475,9 @@ class DFTerminal(DFNode):
                         matchedoutput.designAtoB_dict[designB_i] = self
                         self.designBtoA_dict[designA_i] = matchedoutput
 
+                        matchedoutput.matchedcnt = matchedoutput.matchedcnt + 1
+                        self.matchedcnt = self.matchedcnt + 1
+
                         print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", designB_i, designA_i, self.name, ":::",  self.parentstr, matchedoutput.designAtoB_dict)
 
 
@@ -165,6 +488,9 @@ class DFTerminal(DFNode):
             return True
         else:
             return False
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+        return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
@@ -193,7 +519,7 @@ class DFTerminal(DFNode):
                     brIdfy.termMultiNum = brIdfy.termMultiNum + 1
 
 
-        ret = '(Terminal '
+        ret =  str(self.matchedcnt)+'(Terminal '
         for n in self.name:
             ret += str(n) + '.'
         return ret[0:-1] + ')'
@@ -314,21 +640,34 @@ class DFConstant(DFNode):
     def __hash__(self):
         return hash(self.value)
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, str(self.value))
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = self.tostr()
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.value == DFNode.value and self.parentstr == DFNode.parentstr:
             return True
         else:
             return False
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+        return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
@@ -341,7 +680,7 @@ class DFConstant(DFNode):
             brIdfy.constantNum = brIdfy.constantNum + 1
 
 
-        ret = '(Constant ' + str(self.value) + ')'
+        ret =  str(self.matchedcnt)+'(Constant ' + str(self.value) + ')'
         return ret
 
     def muxModify(self, newScopeName_list, dinbool=None, din_repeatedstr=None):
@@ -389,21 +728,34 @@ class DFIntConst(DFConstant):
             return int(match.group(1), 10)
         return 32
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, str(self.value))
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = self.tostr()
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.value == self.value and self.parentstr == DFNode.parentstr:
+        if type(self) == type(DFNode) and self.value == DFNode.value and self.parentstr == DFNode.parentstr:
             return True
         else:
             return False
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+        return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -418,7 +770,7 @@ class DFIntConst(DFConstant):
             brIdfy = muxIdfy.brIdfyDict[preNode]
             brIdfy.constantNum = brIdfy.constantNum + 1
 
-        ret = '(IntConst ' + str(self.value) + ')'
+        ret =  str(self.matchedcnt)+'(IntConst ' + str(self.value) + ')'
         return ret
     #it gets here bcos of the case msb or bcos of the lsb concated
     def concatBindDestVModify(self, originalterminal, maxbit, bitdiff):
@@ -443,21 +795,34 @@ class DFFloatConst(DFConstant):
     def eval(self):
         return float(self.value)
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, str(self.value))
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = self.tostr()
+        self.matchedcnt = 0
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.value == self.value and self.parentstr == DFNode.parentstr:
             return True
         else:
             return False
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+        return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -469,7 +834,7 @@ class DFFloatConst(DFConstant):
             brIdfy = muxIdfy.brIdfyDict[preNode]
             brIdfy.constantNum = brIdfy.constantNum + 1
 
-        ret = '(FloatConst ' + str(self.value) + ')'
+        ret =  str(self.matchedcnt)+'(FloatConst ' + str(self.value) + ')'
         return ret
 
 class DFStringConst(DFConstant):
@@ -482,30 +847,46 @@ class DFStringConst(DFConstant):
     def eval(self):
         return self.value
 
-    def IDNeighbour(self, preNode, design_i, info_str = None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, str(self.value))
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level = None, info_str = None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = self.tostr()
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.value == self.value and self.parentstr == DFNode.parentstr:
+        if type(self) == type(DFNode) and self.value == DFNode.value and self.parentstr == DFNode.parentstr:
             return True
         else:
             return False
 
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+        return self.MCSBindGenDFNode(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
+
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
-        ret = '(StringConst ' + str(self.value) + ')'
+        ret =  str(self.matchedcnt)+'(StringConst ' + str(self.value) + ')'
         return ret
 
 ################################################################################
-class DFNotTerminal(DFNode): pass
+class DFNotTerminal(DFNode): #pass
+    def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
+        return super(DFNotTerminal, self).findGraphSize(designnum, mcshead_list, current_head, prenode_matcheddesign_i_list,
+                                          mcsnode_cnt, mcsmatch_cnt)
 
 class DFOperator(DFNotTerminal):
     attr_names = ('operator',)
@@ -546,18 +927,28 @@ class DFOperator(DFNotTerminal):
     def __hash__(self):
         return hash((self.operator, tuple(self.nextnodes)))
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, "DFOperator", self.operator)
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         for i, n in enumerate(self.nextnodes):
             self.neighbour.append(n)
-            n.IDNeighbour(self, design_i, self.operator + str(i))
+            n.IDNeighbour(self, headScope, design_i, self.node_level + 1, self.operator + str(i))
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = self.operator
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
@@ -566,9 +957,88 @@ class DFOperator(DFNotTerminal):
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.operator == DFNode.operator and self.parentstr == DFNode.parentstr:
-            return True
+            # TODO: we hack, check all the children number are the same, so that if there are differences, it can be easily replaced
+            if len(self.nextnodes) != len(DFNode.nextnodes):
+                return False
+            else:
+                #for ni in range(0, len(self.nextnodes)):
+                #    if self.nextnodes[ni].selfstr != DFNode.nextnodes[ni].selfstr:
+                #        return False
+
+                return True
         else:
             return False
+
+    def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
+
+        [self_case, self_head, self_matcheddesign_i_list, self_mcsnode_count, self_mcmatch_count]= \
+            super(DFOperator, self).findGraphSize(designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt)
+
+        ### using another var to avoid polluting self variable
+        arg_head = self_head
+        arg_node_cnt = self_mcsnode_count
+        arg_match_cnt = self_mcmatch_count
+
+        if self_case == MCS_NODE_UNMATCHED:
+            arg_matcheddesign_i_list = []
+
+        elif self_case == MCS_NODE_HEAD or self_case == MCS_NODE_SAME:
+            arg_matcheddesign_i_list = copy.copy(self_matcheddesign_i_list)
+
+
+        ### OKAY now go deeper
+        for n in self.nextnodes:
+            [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+                self.findGraphSizeGoDeep(n, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+
+        # return var
+        if self_case == MCS_NODE_UNMATCHED or self_case == MCS_NODE_HEAD:
+            return [self_case, None, None, mcsnode_cnt, mcsmatch_cnt]
+
+        else: # the match list need to be updated by children
+            return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
+
+
+
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+
+        children_list = list(self.nextnodes)
+        childrenstr_list = list(range(len(self.nextnodes)))
+
+        [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal\
+            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
+
+        if ret_children_list != None:
+            self.nextnodes = tuple(ret_children_list)
+
+        return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
+
+
+    def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, nextnode_num):
+
+        print("B redirected.....", end=' ')
+        self.toPrint()
+
+        nextnodes_list = list(self.nextnodes)
+
+        [MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
+            nextnodes_list[nextnode_num].MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, True)
+
+        nextnodes_list[nextnode_num] = ret_terminal_node
+
+        self.nextnodes = tuple(nextnodes_list)
+
+    def MCSBindGenSplitHead(self, new_node, old_node):
+        nextnodes_list = list(self.nextnodes)
+
+        for nn_i in range(0, len(nextnodes_list)):
+            if (nextnodes_list[nn_i]) == id(old_node):
+                nextnodes_list[nn_i] = new_node
+
+        self.nextnodes = tuple(nextnodes_list)
+
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -588,7 +1058,7 @@ class DFOperator(DFNotTerminal):
             info_op = None
 
         for n in self.nextnodes: ret += n.traverse(preNode, sigDiff, muxIdfy, options, info_dict, info_op, info_str) + ','
-        ret = ret[0:-1] + ')'
+        ret =  str(self.matchedcnt)+ret[0:-1] + ')'
         return ret
 
     def muxModify(self, newScopeName_list, dinbool=None, din_repeatedstr=None):
@@ -654,23 +1124,33 @@ class DFPartselect(DFNotTerminal):
     def __hash__(self):
         return hash((self.var, self.msb, self.lsb))
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, "DFPartselect", str(self.var))
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         self.neighbour.append(self.var)
         self.neighbour.append(self.msb)
         self.neighbour.append(self.lsb)
 
-        self.var.IDNeighbour(self, design_i, "DFPartselect_var")
-        self.msb.IDNeighbour(self, design_i, "DFPartselect_msb")
-        self.lsb.IDNeighbour(self, design_i, "DFPartselect_lsb")
+        self.var.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFPartselect_var")
+        self.msb.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFPartselect_msb")
+        self.lsb.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFPartselect_lsb")
 
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = 'Partselect'
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
@@ -679,15 +1159,67 @@ class DFPartselect(DFNotTerminal):
         self.lsb.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
     def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+        # partsel needs special care
+        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr and \
+                str(self.var.name.scopechain) == str(DFNode.var.name.scopechain) and \
+                self.msb.value == DFNode.msb.value and \
+                self.lsb.value == DFNode.lsb.value:
             return True
         else:
             return False
 
+    def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
+
+        [self_case, self_head, self_matcheddesign_i_list, self_mcsnode_count, self_mcmatch_count] = \
+            super(DFPartselect, self).findGraphSize(designnum, mcshead_list, current_head, prenode_matcheddesign_i_list,
+                                                  mcsnode_cnt, mcsmatch_cnt)
+
+        ### using another var to avoid polluting self variable
+        arg_head = self_head
+        arg_node_cnt = self_mcsnode_count
+        arg_match_cnt = self_mcmatch_count
+
+        if self_case == MCS_NODE_UNMATCHED:
+            arg_matcheddesign_i_list = []
+
+        elif self_case == MCS_NODE_HEAD or self_case == MCS_NODE_SAME:
+            arg_matcheddesign_i_list = copy.copy(self_matcheddesign_i_list)
+
+        ### OKAY now go deeper
+        [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+            self.findGraphSizeGoDeep(self.var, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+            self.findGraphSizeGoDeep(self.msb, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+            self.findGraphSizeGoDeep(self.lsb, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        # return var
+        if self_case == MCS_NODE_UNMATCHED or self_case == MCS_NODE_HEAD:
+            return [self_case, None, None, mcsnode_cnt, mcsmatch_cnt]
+
+        else:  # the match list need to be updated by children
+            return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
+
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+
+        children_list = [self.var, self.msb, self.lsb]
+        childrenstr_list = []
+
+        [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal \
+            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, children_list, childrenstr_list, False, M_B_bool)
+
+
+        return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
+
+
+
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
-        ret = '(Partselect'
+        ret =  str(self.matchedcnt)+'(Partselect'
         # even for branch, you don't have to go in, bcos the select MSB, LSB will do the trick
         ret += ' Var:' + self.var.traverse(preNode, sigDiff, muxIdfy, options, info_dict, None, info_str)
         ret += ' MSB:' + self.msb.traverse(preNode, sigDiff, muxIdfy, options, info_dict, info_op, 'msb')
@@ -756,21 +1288,31 @@ class DFPointer(DFNotTerminal):
     def __hash__(self):
         return hash((self.var, self.ptr))
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, "DFPointer", str(self.var))
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         self.neighbour.append(self.var)
         self.neighbour.append(self.ptr)
 
-        self.var.IDNeighbour(self, design_i, "DFPointer_var")
-        self.ptr.IDNeighbour(self, design_i, "DFPointer_ptr")
+        self.var.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFPointer_var")
+        self.ptr.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFPointer_ptr")
 
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = 'DFPointer'
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
@@ -783,10 +1325,83 @@ class DFPointer(DFNotTerminal):
         else:
             return False
 
+    def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
+
+        [self_case, self_head, self_matcheddesign_i_list, self_mcsnode_count, self_mcmatch_count] = \
+            super(DFPointer, self).findGraphSize(designnum, mcshead_list, current_head, prenode_matcheddesign_i_list,
+                                                  mcsnode_cnt, mcsmatch_cnt)
+
+        ### using another var to avoid polluting self variable
+        arg_head = self_head
+        arg_node_cnt = self_mcsnode_count
+        arg_match_cnt = self_mcmatch_count
+
+        if self_case == MCS_NODE_UNMATCHED:
+            arg_matcheddesign_i_list = []
+
+        elif self_case == MCS_NODE_HEAD or self_case == MCS_NODE_SAME:
+            arg_matcheddesign_i_list = copy.copy(self_matcheddesign_i_list)
+
+        ### OKAY now go deeper
+        [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+            self.findGraphSizeGoDeep(self.var, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+            self.findGraphSizeGoDeep(self.ptr, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        # return var
+        if self_case == MCS_NODE_UNMATCHED or self_case == MCS_NODE_HEAD:
+            return [self_case, None, None, mcsnode_cnt, mcsmatch_cnt]
+
+        else:  # the match list need to be updated by children
+            return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+
+        children_list = [self.var, self.ptr]
+        childrenstr_list = ['var', 'ptr']
+
+        [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal\
+            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
+
+        if ret_children_list != None:
+            self.var = ret_children_list[0]
+            self.ptr = ret_children_list[1]
+
+        return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
+
+
+    def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, nextnode_str):
+
+        print("B redirected.....", end=' ')
+        self.toPrint()
+
+        if nextnode_str == 'var':
+            [MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
+                self.var.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, True)
+
+            self.var = ret_terminal_node
+
+        elif nextnode_str == 'ptr':
+            [MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
+                self.ptr.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, True)
+
+            self.ptr = ret_terminal_node
+
+
+    def MCSBindGenSplitHead(self, new_node, old_node):
+
+        if id(self.var) == id(old_node):
+            self.var = new_node
+
+        if id(self.ptr) == id(old_node):
+            self.ptr = new_node
+
+
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
-        ret = '(Pointer'
+        ret =  str(self.matchedcnt)+'(Pointer'
         ret += ' Var:' + self.var.traverse(preNode, sigDiff, muxIdfy, options, info_dict, info_op, info_str)
         ret += ' PTR:' + self.ptr.traverse(preNode, sigDiff, muxIdfy, options, info_dict, info_op, info_str)
         ret += ')'
@@ -843,18 +1458,28 @@ class DFConcat(DFNotTerminal):
     def __hash__(self):
         return hash(tuple(self.nextnodes))
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, "DFConcat", self.nextnodes)
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         for i, n in enumerate(self.nextnodes):
             self.neighbour.append(n)
-            n.IDNeighbour(self, design_i, "DFConcat_" + str(i))
+            n.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFConcat_" + str(i))
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = 'DFConcat'
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
@@ -863,14 +1488,67 @@ class DFConcat(DFNotTerminal):
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
-            return True
+            #return True
+            # TODO: we hack, check all the children to see if they are also the same
+            # concat is different from operators bcos they are hard to combine across tree
+            if len(self.nextnodes) != len(DFNode.nextnodes):
+                return False
+            else:
+                for ni in range(0, len(self.nextnodes)):
+                    if self.nextnodes[ni].selfstr != DFNode.nextnodes[ni].selfstr:
+                        return False
+
+                return True
         else:
             return False
+
+
+    def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
+
+        [self_case, self_head, self_matcheddesign_i_list, self_mcsnode_count, self_mcmatch_count] = \
+            super(DFConcat, self).findGraphSize(designnum, mcshead_list, current_head, prenode_matcheddesign_i_list,
+                                                  mcsnode_cnt, mcsmatch_cnt)
+
+        ### using another var to avoid polluting self variable
+        arg_head = self_head
+        arg_node_cnt = self_mcsnode_count
+        arg_match_cnt = self_mcmatch_count
+
+        if self_case == MCS_NODE_UNMATCHED:
+            arg_matcheddesign_i_list = []
+
+        elif self_case == MCS_NODE_HEAD or self_case == MCS_NODE_SAME:
+            arg_matcheddesign_i_list = copy.copy(self_matcheddesign_i_list)
+
+        ### OKAY now go deeper
+        for n in self.nextnodes:
+            [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+                self.findGraphSizeGoDeep(n, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+        # return var
+        if self_case == MCS_NODE_UNMATCHED or self_case == MCS_NODE_HEAD:
+            return [self_case, None, None, mcsnode_cnt, mcsmatch_cnt]
+
+        else:  # the match list need to be updated by children
+            return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
+
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+
+        children_list = list(self.nextnodes)
+        childrenstr_list = []
+
+        [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal \
+            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, children_list, childrenstr_list, False, M_B_bool)
+
+
+        return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
+
+
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
-        ret = '(Concat'
+        ret =  str(self.matchedcnt)+'(Concat'
         ret += ' Next:'
         for n in self.nextnodes: ret += n.traverse(preNode, sigDiff, muxIdfy, options, info_dict, info_op, info_str) + ','
         ret = ret[0:-1] + ')'
@@ -971,27 +1649,41 @@ class DFBranch(DFNotTerminal):
     def __hash__(self):
         return hash((self.condnode, self.truenode, self.falsenode))
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        ret = ''
+        if self.condnode is not None: ret += ' Cond:'
+        if self.truenode is not None: ret += ' True:'
+        if self.falsenode is not None: ret += ' False:'
+        print(str(self.selfdesignnum), self.parentstr, "DFBranch", ret)
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         if self.condnode is not None:
             self.neighbour.append(self.condnode)
-            self.condnode.IDNeighbour(self, design_i, "DFBranch_cond")
+            self.condnode.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFBranch_cond")
 
         if self.truenode is not None:
             self.neighbour.append(self.truenode)
-            self.truenode.IDNeighbour(self, design_i, "DFBranch_true")
+            self.truenode.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFBranch_true")
 
         if self.falsenode is not None:
             self.neighbour.append(self.falsenode)
-            self.falsenode.IDNeighbour(self, design_i, "DFBranch_false")
+            self.falsenode.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFBranch_false")
 
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = 'DFBranch'
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
@@ -1006,15 +1698,128 @@ class DFBranch(DFNotTerminal):
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+
+            if (self.condnode is None and DFNode.condnode is not None) or \
+                    (self.condnode is not None and DFNode.condnode is None):
+                return False
+
+            if (self.truenode is None and DFNode.truenode is not None) or \
+                    (self.truenode is not None and DFNode.truenode is None):
+                return False
+
+            if (self.falsenode is None and DFNode.falsenode is not None) or \
+                    (self.falsenode is not None and DFNode.falsenode is None):
+                return False
+
             return True
         else:
             return False
+
+
+    def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
+
+        [self_case, self_head, self_matcheddesign_i_list, self_mcsnode_count, self_mcmatch_count] = \
+            super(DFBranch, self).findGraphSize(designnum, mcshead_list, current_head, prenode_matcheddesign_i_list,
+                                                  mcsnode_cnt, mcsmatch_cnt)
+
+        ### using another var to avoid polluting self variable
+        arg_head = self_head
+        arg_node_cnt = self_mcsnode_count
+        arg_match_cnt = self_mcmatch_count
+
+        if self_case == MCS_NODE_UNMATCHED:
+            arg_matcheddesign_i_list = []
+
+        elif self_case == MCS_NODE_HEAD or self_case == MCS_NODE_SAME:
+            arg_matcheddesign_i_list = copy.copy(self_matcheddesign_i_list)
+
+        ### OKAY now go deeper
+        [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+            self.findGraphSizeGoDeep(self.condnode, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        if self.truenode is not None:
+            [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+                self.findGraphSizeGoDeep(self.truenode, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        if self.falsenode is not None:
+            [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+                self.findGraphSizeGoDeep(self.falsenode, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        # return var
+        if self_case == MCS_NODE_UNMATCHED or self_case == MCS_NODE_HEAD:
+            return [self_case, None, None, mcsnode_cnt, mcsmatch_cnt]
+
+        else:  # the match list need to be updated by children
+            return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
+
+
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+
+        children_list = [self.condnode, self.truenode, self.falsenode]
+        childrenstr_list = ['condnode', 'truenode', 'falsenode']
+
+        [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal\
+            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
+
+        if ret_children_list != None:
+            self.condnode = ret_children_list[0]
+            self.truenode = ret_children_list[1]
+            self.falsenode = ret_children_list[2]
+
+        return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
+
+
+    def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, nextnode_str):
+
+        print("B redirected.....", end=' ')
+        self.toPrint()
+
+        err = False
+        if nextnode_str == 'condnode':
+            [MCSsig_cnt, ret_mcs_breakpt_condnode, ret_terminal_node] = \
+                self.condnode.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, True)
+
+            self.condnode = ret_terminal_node
+            if ret_mcs_breakpt_condnode == False: err = True
+
+
+        elif nextnode_str == 'truenode':
+            [MCSsig_cnt, ret_mcs_breakpt_truenode, ret_terminal_node] = \
+                self.truenode.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, True)
+
+            self.truenode = ret_terminal_node
+            if ret_mcs_breakpt_truenode == False: err = True
+
+        elif nextnode_str == 'falsenode':
+            [MCSsig_cnt, ret_mcs_breakpt_falsenode, ret_terminal_node] = \
+                self.falsenode.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, True)
+
+            self.falsenode = ret_terminal_node
+            if ret_mcs_breakpt_falsenode == False: err = True
+
+
+        if err:
+            sys.stderr.write(type(self), ": Children are the same, and the structure is difference compared to previous designs, exit!")
+            exit()
+
+    def MCSBindGenSplitHead(self, new_node, old_node):
+
+        if self.condnode is not None and id(self.condnode) == id(old_node):
+            self.condnode = new_node
+
+        elif self.truenode is not None and id(self.truenode) == id(old_node):
+            self.truenode = new_node
+
+        elif self.falsenode is not None and id(self.falsenode) == id(old_node):
+            self.falsenode = new_node
+
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
 
-        ret = '(Branch'
+        ret =  str(self.matchedcnt)+'(Branch'
         if self.condnode is not None:
 
             #if not 'branch' in info_dict:
@@ -1095,6 +1900,10 @@ class DFEvalValue(DFNode):
         return ret
     def tocode(self, dest='dest'):
         return self.__repr__()
+
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, "DFEvalValue", str(self.value))
+
     def children(self):
         nodelist = []
         return tuple(nodelist)
@@ -1106,19 +1915,31 @@ class DFEvalValue(DFNode):
     def __hash__(self):
         return hash((self.value, self.width, self.isfloat, self.isstring))
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
+        self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
+
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = 'DFEvalValue'
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
             return True
         else:
             return False
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+        return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -1151,19 +1972,34 @@ class DFUndefined(DFNode):
     def __hash__(self):
         return hash(self.width)
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, "DFUndefined", str(self.width))
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
+        self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
+
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = 'DFUndefined'
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
             return True
         else:
             return False
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+        return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -1196,19 +2032,34 @@ class DFHighImpedance(DFNode):
     def __hash__(self):
         return hash(self.width)
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, "DFHighImpedance", str(self.width))
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
+        self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
+
         self.neighbour.append(preNode)
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = 'DFHighImpedance'
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def MCS_NodeCmp(self, DFNode):
         if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
             return True
         else:
             return False
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+        return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -1241,18 +2092,28 @@ class DFDelay(DFNotTerminal):
     def __hash__(self):
         return hash(tuple(self.nextnodes))
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, "DFDelay", self.nextnode)
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         if self.nextnode is not None:
             self.neighbour.append(self.nextnode)
-            self.nextnode.IDNeighbour(self, design_i, "DFDelay")
+            self.nextnode.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFDelay")
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = 'DFDelay'
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
@@ -1264,6 +2125,43 @@ class DFDelay(DFNotTerminal):
             return True
         else:
             return False
+
+    def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
+
+        [self_case, self_head, self_matcheddesign_i_list, self_mcsnode_count, self_mcmatch_count] = \
+            super(DFDelay, self).findGraphSize(designnum, mcshead_list, current_head, prenode_matcheddesign_i_list,
+                                                  mcsnode_cnt, mcsmatch_cnt)
+
+        ### using another var to avoid polluting self variable
+        arg_head = self_head
+        arg_node_cnt = self_mcsnode_count
+        arg_match_cnt = self_mcmatch_count
+
+        if self_case == MCS_NODE_UNMATCHED:
+            arg_matcheddesign_i_list = []
+
+        elif self_case == MCS_NODE_HEAD or self_case == MCS_NODE_SAME:
+            arg_matcheddesign_i_list = copy.copy(self_matcheddesign_i_list)
+
+        ### OKAY now go deeper
+        if self.nextnode is not None:
+            [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+                self.findGraphSizeGoDeep(self.nextnode, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        # return var
+        if self_case == MCS_NODE_UNMATCHED or self_case == MCS_NODE_HEAD:
+            return [self_case, None, None, mcsnode_cnt, mcsmatch_cnt]
+
+        else:  # the match list need to be updated by children
+            return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+        return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
+
+    def MCSBindGenSplitHead(self, new_node, old_node):
+
+        if self.nextnode is not None:
+            self.nextnode = new_node
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -1320,18 +2218,28 @@ class DFSyscall(DFNotTerminal):
     def __hash__(self):
         return hash(tuple(self.nextnodes))
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), self.parentstr, "DFSyscall", self.nextnodes)
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = preNode_level + 1
 
         self.neighbour.append(preNode)
         for i, n in enumerate(self.nextnodes):
             self.neighbour.append(n)
-            n.IDNeighbour(self, design_i, "DFSyscall_" + str(i))
+            n.IDNeighbour(self, headScope, design_i, self.node_level + 1, "DFSyscall_" + str(i))
         self.parent = preNode
         self.parentstr = info_str
+        self.selfstr = self.syscall
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
@@ -1343,6 +2251,35 @@ class DFSyscall(DFNotTerminal):
             return True
         else:
             return False
+
+    def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
+
+        [self_case, self_head, self_matcheddesign_i_list, self_mcsnode_count, self_mcmatch_count] = \
+            super(DFSyscall, self).findGraphSize(designnum, mcshead_list, current_head, prenode_matcheddesign_i_list,
+                                                  mcsnode_cnt, mcsmatch_cnt)
+
+        ### using another var to avoid polluting self variable
+        arg_head = self_head
+        arg_node_cnt = self_mcsnode_count
+        arg_match_cnt = self_mcmatch_count
+
+        if self_case == MCS_NODE_UNMATCHED:
+            arg_matcheddesign_i_list = []
+
+        elif self_case == MCS_NODE_HEAD or self_case == MCS_NODE_SAME:
+            arg_matcheddesign_i_list = copy.copy(self_matcheddesign_i_list)
+
+        ### OKAY now go deeper
+        for n in self.nextnodes:
+            [arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt] = \
+                self.findGraphSizeGoDeep(n, designnum, mcshead_list, arg_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt)
+
+        # return var
+        if self_case == MCS_NODE_UNMATCHED or self_case == MCS_NODE_HEAD:
+            return [self_case, None, None, mcsnode_cnt, mcsmatch_cnt]
+
+        else:  # the match list need to be updated by children
+            return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -1584,8 +2521,12 @@ class Bind(object):
         if self.alwaysinfo is None: return ''
         return self.alwaysinfo.getSenslist()
 
-    def IDNeighbour(self, preNode, design_i, info_str=None):
+    def toPrint(self):
+        print(str(self.selfdesignnum), "Bind", str(self.dest))
+
+    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
+        self.node_level = 0
 
         #if self.dest is not None:
             #self.neighbour.append(self.dest)
@@ -1601,17 +2542,23 @@ class Bind(object):
 
         if self.ptr is not None:
             self.neighbour.append(self.ptr)
-            self.ptr.IDNeighbour(self, design_i, "Bind_ptr")
+            self.ptr.IDNeighbour(self, headScope, design_i, self.node_level + 1, "Bind_ptr")
 
         if self.tree is not None:
             self.neighbour.append(self.tree)
-            self.tree.IDNeighbour(self, design_i, "Bind_tree")
+            self.tree.IDNeighbour(self, headScope, design_i, self.node_level + 1,  "Bind_tree")
 
         self.parent = self.dest
         self.parentstr = info_str
+        self.selfstr = str(self.dest)
 
         self.designAtoB_dict ={}
         self.designBtoA_dict = {}
+        self.matchedcnt = 0
+
+        self.headScope = headScope
+        self.MCSbindgen_nodesplit = False
+        self.MCSbindgen_visited = False
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
@@ -1628,9 +2575,133 @@ class Bind(object):
         else:
             return False
 
+    def findGraphSize(self, designnum):
+
+        mcshead_list = []
+
+        current_head = None
+        self_matcheddesign_i_list = []
+        mcsnode_cnt = 0
+        mcsmatch_cnt = 0
+
+        self.graphsize = 0
+        self.matcheddesign = self_matcheddesign_i_list
+
+
+        for designmatched_i in range(0, designnum):
+
+            if designmatched_i in self.designAtoB_dict and designmatched_i != self.selfdesignnum:
+                self_matcheddesign_i_list.append(True)
+                mcsmatch_cnt = mcsmatch_cnt + 1
+            else:
+                self_matcheddesign_i_list.append(False)
+
+        # Since it is the head, if there is a match, than node_cnt must be 1
+        if self.designAtoB_dict:
+            mcshead_list.append(self)
+            mcsnode_cnt = 1
+
+
+            current_head = self
+            current_head.graphsize = mcsnode_cnt
+            current_head.matchsize = mcsmatch_cnt
+
+        if self.ptr is not None:
+            self.ptr.findGraphSize(designnum, mcshead_list, current_head, self_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt)
+
+        if self.tree is not None:
+            self.tree.findGraphSize(designnum, mcshead_list, current_head, self_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt)
+
+        return mcshead_list
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
+
+        ### First Node should be with mcs
+
+        if self.MCSbindgen_visited == True:
+            print("binddest already visited.....", end=' ')
+            self.toPrint()
+            # bcos it is replicated, so return false even if it is a breakpt
+            return [MCSsig_cnt, False, None]
+
+        # put self into global common bindlist, and remove that from each of the node
+        MCScommonbinddict[self.dest] = designbinddict_list[self.selfdesignnum][self.dest]
+        del designbinddict_list[self.selfdesignnum][self.dest]
+
+
+        self.MCSbindgen_visited = True
+        for di, dv in enumerate(headnode.matcheddesign):
+            if dv == True:
+                nodeB = self.designAtoB_dict[di]
+                nodeB.MCSbindgen_visited = True
+
+                del designbinddict_list[di][nodeB.dest]
+
+
+
+        if self.ptr is not None:
+            [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
+                self.ptr.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
+
+            if ret_mcs_breakpt == True:
+                self.ptr = ret_terminal_node
+
+                for di, dv in enumerate(headnode.matcheddesign):
+                    if dv == True:
+                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, MCSbinddict_list,  MCSassign_analyzer, 'ptr')
+            MCSsig_cnt = ret_MCSsig_cnt
+
+
+        if self.tree is not None:
+            [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
+                self.tree.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
+
+            if ret_mcs_breakpt == True:
+                self.tree = ret_terminal_node
+
+                for di, dv in enumerate(headnode.matcheddesign):
+                    if dv == True:
+                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, MCSbinddict_list,  MCSassign_analyzer, 'tree')
+            MCSsig_cnt = ret_MCSsig_cnt
+
+
+
+        return [MCSsig_cnt, True, None]
+
+
+    def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, nextnode_str):
+
+        print("B redirected.....", end=' ')
+        self.toPrint()
+
+        err = False
+        if nextnode_str == 'ptr':
+            [MCSsig_cnt, ret_mcs_breakpt_ptr, ret_terminal_node] = \
+                self.ptr.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, True)
+
+            self.ptr = ret_terminal_node
+
+            if ret_mcs_breakpt_ptr == False:
+                err = True
+
+        elif nextnode_str == 'tree':
+            [MCSsig_cnt, ret_mcs_breakpt_tree, ret_terminal_node] = \
+                self.tree.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, True)
+
+            self.tree = ret_terminal_node
+
+            if ret_mcs_breakpt_tree == False:
+                err = True
+
+
+        if err:
+            sys.stderr.write(str(type(self)) +  ": Children are the same, and the structure is difference compared to previous designs, exit!\n")
+            exit()
+
+
     def traverse(self, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
 
-        ret = '(Bind'
+        ret =  str(self.matchedcnt)+'(Bind'
         if self.dest is not None:
             ret += ' dest:' + str(self.dest)
 
