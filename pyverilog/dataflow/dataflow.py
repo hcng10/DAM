@@ -2648,7 +2648,7 @@ class Bind(object):
 
                 for di, dv in enumerate(headnode.matcheddesign):
                     if dv == True:
-                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, MCSbinddict_list,  MCSassign_analyzer, 'ptr')
+                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, designbinddict_list, MCSbinddict_list,  MCSassign_analyzer, 'ptr')
             MCSsig_cnt = ret_MCSsig_cnt
 
 
@@ -2661,7 +2661,7 @@ class Bind(object):
 
                 for di, dv in enumerate(headnode.matcheddesign):
                     if dv == True:
-                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, MCScommonbinddict, MCSbinddict_list,  MCSassign_analyzer, 'tree')
+                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list,  MCSassign_analyzer, 'tree')
             MCSsig_cnt = ret_MCSsig_cnt
 
 
