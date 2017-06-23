@@ -740,8 +740,8 @@ def main():
                                             nobind=False,
                                             preprocess_include=[],
                                             preprocess_define=[])
-
-    calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer)
+    #TODO: uncomment this for finding mcs
+    #calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer)
 
 
 
