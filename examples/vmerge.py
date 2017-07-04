@@ -418,7 +418,21 @@ def createSignalList(analyzer, designterm_list, idx, sigdiffScope_Ref0, sigStr_T
 
     #calculate the bitnum
     for tk, tv in term.items():
-        tv.bitwidth = tv.msb.eval() - tv.lsb.eval() + 1
+        tv.bitwidth = eval(tv.msb.tocode()) - eval(tv.lsb.tocode()) + 1
+
+        # Internal signal, they wouldn't be IO anymore
+        if str(tk).count('.') > 1:
+            if signaltype.isOutput(tv.termtype):
+                tv.termtype.remove('Output')
+                if not signaltype.isReg(tv.termtype):
+                    tv.termtype.add('Wire')
+
+            elif signaltype.isInput(tv.termtype):
+                tv.termtype.remove('Input')
+                if not signaltype.isReg(tv.termtype):
+                    tv.termtype.add('Wire')
+
+        print(tk, tv.termtype)
 
         if signaltype.isOutput(tv.termtype):
             designtermo_set.add(str(tk))
@@ -607,9 +621,10 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict_list, sigdiffStr_Refma
 
         elif ti.scopechain[-1].scopename == options.resetname:
             if not design == 0: del termdict[ti]
-        else:
-            nonmuxingscope = ti.scopechain[-1]
-            nonmuxingscope.scopename = nonmuxingscope.scopename + str(design)
+        #should be the same name if your are input, coz the graph is already common
+        #else:
+            #nonmuxingscope = ti.scopechain[-1]
+            #nonmuxingscope.scopename = nonmuxingscope.scopename + str(design)
 
 
 
@@ -783,10 +798,15 @@ def main():
     print(designanalyzer_list[0].getBinddict(), '\n')
     bind_list = sorted(designanalyzer_list[0].getBinddict().items(),key=lambda x:str(x[0]))
 
+
     print("bind_list")
     for bi, bv in bind_list:
         for bve in bv:
+            # TODO:** need to fix partsel for mcs as well, by eval that
+            # TODO:** currently u have not fixed that for every canditate
+            # fix partsel here
             print(bi, bve.tostr())
+
 
     print('\n')
 
@@ -896,8 +916,16 @@ def main():
     newbinddict={}
     for design, termdict in enumerate(designterm_list):
         for ti, tv in termdict.items():
-            if ti in newtermdict: print("Step7: Warning: repeated terms: ", ti)
-            newtermdict[ti] = tv
+            if ti in newtermdict:
+                print("Step7: Warning: repeated terms: ", ti)
+
+                if ti in sigdiffStr_Maxbit_Design:
+                    if sigdiffStr_Maxbit_Design[ti][design] == 0:
+                        newtermdict[ti] = tv
+                        newtermdict[ti] = tv
+            else:
+                newtermdict[ti] = tv
+                newtermdict[ti] = tv
 
     for ti, tv in muxterm_dict.items():
         if ti in newtermdict: print("Step7: Warning: repeated terms (add mux section): ", ti)
@@ -910,6 +938,25 @@ def main():
 
     for bi, bv in muxbind_dict.items():
         newbinddict[bi] = bv
+
+    #final fixing for partsel
+    partsel_cnt_packaslist = [0]
+
+    for bi, bv in newbinddict.items():
+        for bve in bv:
+            #print(bi, bve.tostr())
+            bve.fixpartsel(bi.scopechain, newtermdict, newbinddict, MCSassign_analyzer, partsel_cnt_packaslist)
+
+
+    # final print
+    for bi, bv in newbinddict.items():
+        for bve in bv:
+            print(bi, bve.tostr())
+
+    print('\n')
+
+    for ti, tv in newtermdict.items():
+        print(ti, tv)
 
         # for scope, sig in signals.items(): #in TERMs, the format is [scope: signals]
         #     # TODO: Ho chi incorrect, fix it after working on bind tree

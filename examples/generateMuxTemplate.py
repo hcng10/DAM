@@ -124,8 +124,8 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit)
 
 
     #statement for instantiate the muxes
-    mux_file.write('module mux_template();\n')
-    mux_file.write('    wire [`MUX_SEL_WIDTH-1:0] sel;\n')
+    mux_file.write('module mux_template(sel);\n')
+    mux_file.write('    input [`MUX_SEL_WIDTH-1:0] sel;\n')
 
     #assume that, when dealing with multi-bit, the corresponding tree is common across designs
     #therefore viewing the Muxinfo in the first design is already good

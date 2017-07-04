@@ -75,6 +75,7 @@ class DFNode(object):
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):pass
     # This function is only used in mux structure, and only the terminal needs to be changed :)
     def muxModify(self, newScopeName_list, dinbool=None, din_repeatedstr=None): pass
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist): pass
 
     # preNode: refers to the node right above >< sorry it is a bit confusing
     def bindDestVModify(self, options, casenum, designnum, concatanalyzer, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, preNode = None, info_op = None): pass
@@ -447,6 +448,8 @@ class DFTerminal(DFNode):
         self.MCSbindgen_visited = False
 
 
+
+
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
         # This is important, the starting of the MCS is here
@@ -491,6 +494,10 @@ class DFTerminal(DFNode):
 
     def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
+
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+        term = fixpartsel_termdict[self.name]
+        return eval(term.msb.tocode()) - eval(term.lsb.tocode()) + 1
 
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
@@ -669,6 +676,11 @@ class DFConstant(DFNode):
     def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+        ret = int(self.value).bit_length()
+        if ret == 0: ret = 1
+
+        return ret
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -757,6 +769,16 @@ class DFIntConst(DFConstant):
     def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+        if self.value.isdigit():
+            ret = int(self.value).bit_length()
+            if ret == 0: ret = 1
+        else:
+            ret = self.width()
+
+        return ret
+
+
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
@@ -824,6 +846,11 @@ class DFFloatConst(DFConstant):
     def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+
+        #TODO: This is Hack
+        return 32
+
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
@@ -875,6 +902,13 @@ class DFStringConst(DFConstant):
 
     def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
+
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+
+        ret = int(self.value).bit_length()
+        if ret == 0: ret = 1
+        return ret
+
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -1038,6 +1072,28 @@ class DFOperator(DFNotTerminal):
                 nextnodes_list[nn_i] = new_node
 
         self.nextnodes = tuple(nextnodes_list)
+
+
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+
+        max_bit = 0
+        for n in self.nextnodes:
+            bit = n.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+            if max_bit < bit:
+                max_bit = bit
+
+            if signaltype.isTimes(self.operator):
+                max_bit = max_bit + bit
+
+        if signaltype.isPlusMinus(self.operator):
+            max_bit = max_bit +1
+
+
+        if signaltype.isCompare(self.operator):
+            max_bit = 1
+
+        return max_bit
+
 
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
@@ -1215,6 +1271,81 @@ class DFPartselect(DFNotTerminal):
         return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
 
 
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+
+        bit = self.var.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer,
+                                  partsel_cnt_packaslist)
+
+
+        if type(self.var) !=  'DFTerminal':
+
+            self_Scopechain = copy.deepcopy(headScope)
+
+            for ti, tv in  assign_analyzer.getTerms().items():
+                if ti.scopechain[-1].scopename == 'o':
+                    tv_copied = copy.deepcopy(tv)
+
+                    tv_copied.name.scopechain[-1].scopename = "partsel_sig" + str(partsel_cnt_packaslist[0])
+                    tv_copied.name.scopechain = self_Scopechain[:-1] + [tv_copied.name.scopechain[-1]]
+
+
+                    fixpartsel_termdict[tv_copied.name] = tv_copied
+
+
+
+
+            #gg, need to change it to terminal
+            MCSassign_copied = copy.deepcopy(assign_analyzer.getBinddict())
+
+            for mcsa_i, mcsa_v in MCSassign_copied.items():
+                # print(mcsa_v[0].tree, mcsa_v[0].dest, mcsa_i.scopechain, self_Scopechain)
+
+                # use the terminal to replace me
+
+                terminal_node = mcsa_v[0].tree
+                terminal_node.name.scopechain[-1].scopename = "partsel_sig" + str(partsel_cnt_packaslist[0])
+                terminal_node.name.scopechain = self_Scopechain[:-1] + [terminal_node.name.scopechain[-1]]
+
+
+                mcsa_v[0].tree = self.var
+
+                # make it point to binddest (changing mcsa_i.scopechain will also change mcsa_v[0].dest)
+                mcsa_i.scopechain[-1].scopename = "partsel_sig" + str(partsel_cnt_packaslist[0])
+                mcsa_i.scopechain = self_Scopechain[:-1] + [mcsa_i.scopechain[-1]]
+
+                # print(mcsa_v[0].tree, mcsa_v[0].dest, mcsa_i.scopechain, self.parentstr)
+
+
+                fixpartsel_binddict[mcsa_i] = mcsa_v
+                self.var = terminal_node
+
+                partsel_cnt_packaslist[0] = partsel_cnt_packaslist[0] + 1
+
+
+        self_msb = self.msb.tocode()
+        self_lsb = self.lsb.tocode()
+
+        if self_msb.isdigit():
+            final_msb = int(self_msb)
+        else:
+            final_msb = eval(self_msb)
+
+        if self_lsb.isdigit():
+            final_lsb = int(self_lsb)
+        else:
+            final_lsb = eval(self_lsb)
+
+
+        if bit < final_msb - final_lsb + 1:
+            tv_copied.msb.value = str(final_msb - final_lsb + 1)
+        elif bit < final_msb:
+            tv_copied.msb.value = str(final_msb)
+        else:
+            tv_copied.msb.value = str(bit - 1)
+
+        return final_msb - final_lsb + 1
+
+
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -1313,6 +1444,13 @@ class DFPointer(DFNotTerminal):
         self.headScope = headScope
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
+
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+        bit = self.var.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+        self.ptr.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+
+        return bit
+
 
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
@@ -1543,6 +1681,13 @@ class DFConcat(DFNotTerminal):
 
         return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
 
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+        max_bit = 0
+        for n in self.nextnodes:
+            bit = n.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+            max_bit = max_bit + bit
+
+        return max_bit
 
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
@@ -1814,6 +1959,18 @@ class DFBranch(DFNotTerminal):
         elif self.falsenode is not None and id(self.falsenode) == id(old_node):
             self.falsenode = new_node
 
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+
+        if self.condnode is not None:
+            self.condnode.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+
+        if self.truenode is not None:
+            self.truenode.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+
+        if self.falsenode is not None:
+            self.falsenode.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+
+        return 0
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -2163,6 +2320,12 @@ class DFDelay(DFNotTerminal):
         if self.nextnode is not None:
             self.nextnode = new_node
 
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+        if self.nextnode is not None:
+            return self.nextnode.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+        else:
+            return 0
+
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
 
@@ -2280,6 +2443,14 @@ class DFSyscall(DFNotTerminal):
 
         else:  # the match list need to be updated by children
             return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
+
+
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+        max_bit = 0
+        for n in self.nextnodes:
+            bit = n.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+            if max_bit < bit: max_bit = bit
+        return max_bit
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
         self.preNode = preNode
@@ -2697,6 +2868,10 @@ class Bind(object):
         if err:
             sys.stderr.write(str(type(self)) +  ": Children are the same, and the structure is difference compared to previous designs, exit!\n")
             exit()
+
+    def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
+        if self.ptr is not None: self.ptr.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
+        if self.tree is not None: self.tree.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
 
 
     def traverse(self, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
