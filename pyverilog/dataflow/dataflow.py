@@ -542,8 +542,11 @@ class DFTerminal(DFNode):
             if dinbool and self.name.scopechain[-1].scopename.startswith(din_repeatedstr):
                 self.name.scopechain[-1].scopename = self.name.scopechain[-1].scopename[len(din_repeatedstr):]
 
-            self.name.scopechain = scopename_cpy + self.name.scopechain[-2:]
+            if self.name.scopechain[-1].scopename == 'sel':
+                self.name.scopechain = scopename_cpy[:1] + self.name.scopechain[-1:]
 
+            else:
+                self.name.scopechain = scopename_cpy + self.name.scopechain[-2:]
 
     """
     This function is called to modify the signal name in the bind tree, or even WORSE
