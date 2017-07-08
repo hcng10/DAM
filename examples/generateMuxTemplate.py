@@ -71,10 +71,14 @@ def chgMuxTermScope(lowlevelsigname, muxforSig, muxtermStr_ind_dict, muxtermStr_
 
         if lowlevelsigname!=None: mux_term.scopechain[-1].scopename = lowlevelsigname
 
+    # hack: special care for sel
+    if mux_term.scopechain[0].scopename == 'sel':
+        mux_term.scopechain.insert(0, bi.scopechain[0])
+    else:
 
-    for binddests_scope in reversed(bi.scopechain[:-1]):
-        scopename = copy.deepcopy(binddests_scope)
-        mux_term.scopechain.insert(0, scopename)
+        for binddests_scope in reversed(bi.scopechain[:-1]):
+            scopename = copy.deepcopy(binddests_scope)
+            mux_term.scopechain.insert(0, scopename)
 
     #fix the io/ wire type
     if sigStr_Type != None and str(mux_term) in sigStr_Type:

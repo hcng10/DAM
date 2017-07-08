@@ -6,6 +6,7 @@ from optparse import OptionParser
 from os import listdir
 from os.path import isfile, join
 import copy
+import re
 
 
 # the next line can be removed after installation
@@ -384,6 +385,17 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
     mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, MCSassign_analyzer)
 
 
+def codeToValue(instr):
+    str_list = re.split('(\+|\-|\*|\(|\))', instr)
+
+
+    out_str = ''
+    for s in str_list:
+        if '\'b' in s:
+            out_str += str(int(s[s.index('\'b') + 2:], 2))
+        else:
+            out_str += s
+    return eval(out_str)
 
 
 
@@ -418,18 +430,19 @@ def createSignalList(analyzer, designterm_list, idx, sigdiffScope_Ref0, sigStr_T
 
     #calculate the bitnum
     for tk, tv in term.items():
-        tv.bitwidth = eval(tv.msb.tocode()) - eval(tv.lsb.tocode()) + 1
+
+        tv.bitwidth = codeToValue(tv.msb.tocode()) - codeToValue(tv.lsb.tocode()) + 1
 
         # Internal signal, they wouldn't be IO anymore
         if str(tk).count('.') > 1:
             if signaltype.isOutput(tv.termtype):
                 tv.termtype.remove('Output')
-                if not signaltype.isReg(tv.termtype):
+                if not signaltype.isReg(tv.termtype) and not signaltype.isWire(tv.termtype):
                     tv.termtype.add('Wire')
 
             elif signaltype.isInput(tv.termtype):
                 tv.termtype.remove('Input')
-                if not signaltype.isReg(tv.termtype):
+                if not signaltype.isReg(tv.termtype)and not signaltype.isWire(tv.termtype):
                     tv.termtype.add('Wire')
 
         print(tk, tv.termtype)
@@ -930,6 +943,7 @@ def main():
     for ti, tv in muxterm_dict.items():
         if ti in newtermdict: print("Step7: Warning: repeated terms (add mux section): ", ti)
         newtermdict[ti] = tv
+        print("termdict added", ti)
 
 
     for design, bindlist in enumerate(designbindlist_list):

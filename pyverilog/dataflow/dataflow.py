@@ -390,6 +390,20 @@ class DFNode(object):
 
             return [MCSsig_cnt, self.mcs_breakpt, None, ret_children_list]
 
+    def codeToValue(self, instr):
+        str_list = re.split('(\+|\-|\*|\(|\))', instr)
+
+        out_str = ''
+        for s in str_list:
+            if '\'b' in s:
+                out_str += str(int(s[s.index('\'b') + 2:], 2))
+            else:
+                out_str += s
+        if out_str.isdigit():
+            return int(out_str)
+        else:
+            return eval(out_str)
+
 
 class DFTerminal(DFNode):
     attr_names = ('name',)
@@ -495,9 +509,11 @@ class DFTerminal(DFNode):
     def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool)
 
+
+
     def fixpartsel(self, headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist):
         term = fixpartsel_termdict[self.name]
-        return eval(term.msb.tocode()) - eval(term.lsb.tocode()) + 1
+        return self.codeToValue(term.msb.tocode()) - self.codeToValue(term.lsb.tocode()) + 1
 
 
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
@@ -531,7 +547,7 @@ class DFTerminal(DFNode):
             ret += str(n) + '.'
         return ret[0:-1] + ')'
 
-    def muxModify(self, newScopeName_list, dinbool=None, din_repeatedstr=None):#dinbool<-start from here, think har dim make the signal back to normal
+    def muxModify(self, newScopeName_list, dinbool=None, din_repeatedstr=None):
         #check if "mux_template" exists in the name
         e0_scopechain = self.name.scopechain[0]
         if e0_scopechain.scopename == "mux_template":
@@ -1325,18 +1341,20 @@ class DFPartselect(DFNotTerminal):
                 partsel_cnt_packaslist[0] = partsel_cnt_packaslist[0] + 1
 
 
-        self_msb = self.msb.tocode()
-        self_lsb = self.lsb.tocode()
-
-        if self_msb.isdigit():
-            final_msb = int(self_msb)
-        else:
-            final_msb = eval(self_msb)
-
-        if self_lsb.isdigit():
-            final_lsb = int(self_lsb)
-        else:
-            final_lsb = eval(self_lsb)
+        # self_msb = self.msb.tocode()
+        # self_lsb = self.lsb.tocode()
+        #
+        # if self_msb.isdigit():
+        #     final_msb = int(self_msb)
+        # else:
+        #     final_msb = eval(self_msb)
+        #
+        # if self_lsb.isdigit():
+        #     final_lsb = int(self_lsb)
+        # else:
+        #     final_lsb = eval(self_lsb)
+        final_msb = self.codeToValue(self.msb.tocode())
+        final_lsb = self.codeToValue(self.lsb.tocode())
 
 
         if bit < final_msb - final_lsb + 1:
