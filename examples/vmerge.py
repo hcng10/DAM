@@ -59,10 +59,14 @@ def createScopetoStrMap(design_i, bindlist, designbiStr_dict_list, designbvStr_d
         designbiStr_dict[str(bi)] = bi
         designbvStr_dict[str(bi)] = bv
 
-
         #design, termo_set, designMCSOutput_list)
+        bvhasmulti = False
+        if len(bv) > 1:
+            bvhasmulti = True
+            #bv.sort(key=lambda x: x.toStrForBveTest())
+
         for bve in bv:
-            bve.IDNeighbour(None,  bi.scopechain, design_i)
+            bve.IDNeighbour(None,  bi.scopechain, design_i, bvhasmulti)
 
 
 
@@ -251,6 +255,20 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
 
 
 """
+def handleFindGraphSize(headnodelist, designnum):
+
+    if len(headnodelist) == 1:
+        return headnodelist[0].findGraphSize(designnum)
+    else:
+        # don't bother to check whether they can be combined.....bcos you wouldn't get linear time complexity
+        # so u create new variable, and split them
+        for head in headnodelist:
+
+
+"""
+
+
+"""
     In each node, there will be "designAtoB_dict" and "designBtoA_dict" data structure
     designAtoB_dict:
                    It points to the matched node and the key of the dictionary is the design number that the node is in
@@ -312,24 +330,34 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
 
               ### Complexity O(Nodes) <- Worse case
                 for bi_strA, biA in biStr_dict_A.items():
-                    if bi_strA in biStr_dict_B:
+                    if bi_strA in biStr_dict_B and len(bvStr_dict_A[bi_strA]) == len(bvStr_dict_B[bi_strA]):# hack: the binddest number must be the same
+
 
                         for bv_numA, bvA in enumerate(bvStr_dict_A[bi_strA]):
-                            M_AB.insertNode_M_AtoB(bvA, bvStr_dict_B[bi_strA][bv_numA])
-                            F_A.insertNode(bvA)
+                            desttobemapped_B = bvStr_dict_B[bi_strA][bv_numA]
 
-                            bvA.designAtoB_dict[designB_i] =  bvStr_dict_B[bi_strA][bv_numA]
-                            bvStr_dict_B[bi_strA][bv_numA].designBtoA_dict[designA_i] = bvA
+                            if bvA.toStrForBveTest() == desttobemapped_B.toStrForBveTest():
 
-                            # the number of time that a node is matched, extra info for now
-                            bvStr_dict_B[bi_strA][bv_numA].matchedcnt = bvStr_dict_B[bi_strA][bv_numA].matchedcnt + 1
-                            bvA.matchedcnt = bvA.matchedcnt + 1
+                                M_AB.insertNode_M_AtoB(bvA, desttobemapped_B)
+                                F_A.insertNode(bvA)
 
-                            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~bi", designB_i, designA_i, bi_strA, bvA.designAtoB_dict)
+                                bvA.designAtoB_dict[designB_i] =  bvStr_dict_B[bi_strA][bv_numA]
+                                desttobemapped_B.designBtoA_dict[designA_i] = bvA
 
-                        for bvB in bvStr_dict_B[bi_strA]:
-                            if M_AB.getNode_M_B(bvB) == None:
-                                M_AB.insertNode_M_B(bvB)
+                                # the number of time that a node is matched, extra info for now
+                                desttobemapped_B.matchedcnt = desttobemapped_B.matchedcnt + 1
+                                bvA.matchedcnt = bvA.matchedcnt + 1
+
+                                print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~biA", designB_i, designA_i, bvA.toStrForBveTest(), bvA.designAtoB_dict)
+
+                                if M_AB.getNode_M_B(desttobemapped_B) == None:
+                                    M_AB.insertNode_M_B(desttobemapped_B)
+                                    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~biB", desttobemapped_B.toStrForBveTest() )
+
+
+                        #for bvB in bvStr_dict_B[bi_strA]:
+                            #if M_AB.getNode_M_B(bvB) == None:
+                                #M_AB.insertNode_M_B(bvB)
 
             findMCSwTwo(M_AB, F_A, designB_i)
 
@@ -351,11 +379,13 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
 
         for biA, bvA in bindlist_A:
             for bveA in bvA:
-                nextnodetochk_list.append(bveA)
+                nextnodetochk_list.append(bveA) # rmb a binddest can have multiple branches
+            #nextnodetochk_list.append(bvA)
 
     mcshead_list = []
     while(len(nextnodetochk_list) != 0):
         headnode = nextnodetochk_list.pop(0)
+        #handleFindGraphSize(headnodelist, designnum)
         mcshead_list = mcshead_list + headnode.findGraphSize(designnum)
 
 
@@ -769,7 +799,7 @@ def main():
                                             preprocess_include=[],
                                             preprocess_define=[])
     #TODO: uncomment this for finding mcs
-    #calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer)
+    calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer)
 
 
 

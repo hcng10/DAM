@@ -69,7 +69,7 @@ class DFNode(object):
     # finding mcs and corresponding code generation
     def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None): pass
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list): pass
-    def MCS_NodeCmp(self, DFNode): pass
+    def MCS_NodeCmp(self, DFNode_i): pass
 
     # preNode: refers to the head, or the starting point of the conditional in branch
     def traverse(self, preNode, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):pass
@@ -500,8 +500,8 @@ class DFTerminal(DFNode):
 
 
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and str(self.name.scopechain) == str(DFNode.name.scopechain) and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and str(self.name.scopechain) == str(DFNode_i.name.scopechain) and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -686,8 +686,8 @@ class DFConstant(DFNode):
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.value == DFNode.value and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.value == DFNode_i.value and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -779,8 +779,8 @@ class DFIntConst(DFConstant):
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.value == DFNode.value and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.value == DFNode_i.value and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -856,8 +856,8 @@ class DFFloatConst(DFConstant):
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.value == self.value and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.value == self.value and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -913,8 +913,8 @@ class DFStringConst(DFConstant):
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.value == DFNode.value and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.value == DFNode_i.value and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -1003,15 +1003,16 @@ class DFOperator(DFNotTerminal):
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
 
+
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
         for n in self.nextnodes:
             n.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.operator == DFNode.operator and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.operator == DFNode_i.operator and self.parentstr == DFNode_i.parentstr:
             # TODO: we hack, check all the children number are the same, so that if there are differences, it can be easily replaced
-            if len(self.nextnodes) != len(DFNode.nextnodes):
+            if len(self.nextnodes) != len(DFNode_i.nextnodes):
                 return False
             else:
                 #for ni in range(0, len(self.nextnodes)):
@@ -1233,13 +1234,52 @@ class DFPartselect(DFNotTerminal):
         self.msb.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
         self.lsb.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
-    def MCS_NodeCmp(self, DFNode):
+    def MCS_PartselCmp(self, selfChild, DFChild):
+
+
+
+        if isinstance(selfChild, DFTerminal) and isinstance(DFChild, DFTerminal):
+            if str(selfChild.name.scopechain) == str(DFChild.name.scopechain):
+                return True
+
+        elif isinstance(selfChild, DFOperator) and isinstance(DFChild, DFOperator):
+            if selfChild.operator == DFChild.operator:
+                return True
+
+        elif isinstance(selfChild, DFConstant) and isinstance(DFChild, DFConstant):
+            if selfChild.value == DFChild.value:
+                return True
+
+        elif type(selfChild) == type(DFChild):
+            if selfChild.value == DFChild.value:
+                return True
+
+        return False
+
+
+    def MCS_NodeCmp(self, DFNode_i):
         # partsel needs special care
-        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr and \
-                str(self.var.name.scopechain) == str(DFNode.var.name.scopechain) and \
-                self.msb.value == DFNode.msb.value and \
-                self.lsb.value == DFNode.lsb.value:
-            return True
+        #self.msb.value == DFNode.msb.value and \
+        #self.lsb.value == DFNode.lsb.value:
+
+        inital_ret = False
+        if type(self) == type(DFNode_i) and self.parentstr == DFNode_i.parentstr:
+
+            ret = self.MCS_PartselCmp(self.var, DFNode_i.var)
+
+            if ret == False:
+                return False
+            else:
+                ret = self.MCS_PartselCmp(self.msb, DFNode_i.msb)
+
+                if ret == False:
+                    return False
+                else:
+                    ret = self.MCS_PartselCmp(self.lsb, DFNode_i.lsb)
+
+                    if ret == False: return False
+                    else: return True
+
         else:
             return False
 
@@ -1296,7 +1336,7 @@ class DFPartselect(DFNotTerminal):
                                   partsel_cnt_packaslist)
 
 
-        if type(self.var) !=  'DFTerminal':
+        if not isinstance(self.var, DFTerminal):
 
             self_Scopechain = copy.deepcopy(headScope)
 
@@ -1478,8 +1518,8 @@ class DFPointer(DFNotTerminal):
         self.var.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
         self.ptr.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -1645,16 +1685,16 @@ class DFConcat(DFNotTerminal):
         for n in self.nextnodes:
             n.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.parentstr == DFNode_i.parentstr:
             #return True
             # TODO: we hack, check all the children to see if they are also the same
             # concat is different from operators bcos they are hard to combine across tree
-            if len(self.nextnodes) != len(DFNode.nextnodes):
+            if len(self.nextnodes) != len(DFNode_i.nextnodes):
                 return False
             else:
                 for ni in range(0, len(self.nextnodes)):
-                    if self.nextnodes[ni].selfstr != DFNode.nextnodes[ni].selfstr:
+                    if self.nextnodes[ni].selfstr != DFNode_i.nextnodes[ni].selfstr:
                         return False
 
                 return True
@@ -1862,19 +1902,19 @@ class DFBranch(DFNotTerminal):
         if self.falsenode is not None:
             self.falsenode.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.parentstr == DFNode_i.parentstr:
 
-            if (self.condnode is None and DFNode.condnode is not None) or \
-                    (self.condnode is not None and DFNode.condnode is None):
+            if (self.condnode is None and DFNode_i.condnode is not None) or \
+                    (self.condnode is not None and DFNode_i.condnode is None):
                 return False
 
-            if (self.truenode is None and DFNode.truenode is not None) or \
-                    (self.truenode is not None and DFNode.truenode is None):
+            if (self.truenode is None and DFNode_i.truenode is not None) or \
+                    (self.truenode is not None and DFNode_i.truenode is None):
                 return False
 
-            if (self.falsenode is None and DFNode.falsenode is not None) or \
-                    (self.falsenode is not None and DFNode.falsenode is None):
+            if (self.falsenode is None and DFNode_i.falsenode is not None) or \
+                    (self.falsenode is not None and DFNode_i.falsenode is None):
                 return False
 
             return True
@@ -1929,9 +1969,19 @@ class DFBranch(DFNotTerminal):
             (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
 
         if ret_children_list != None:
-            self.condnode = ret_children_list[0]
-            self.truenode = ret_children_list[1]
-            self.falsenode = ret_children_list[2]
+            ret_i = 0
+
+            if self.condnode is not None:
+                self.condnode = ret_children_list[ret_i]
+                ret_i = ret_i + 1
+
+            if self.truenode is not None:
+                self.truenode = ret_children_list[ret_i]
+                ret_i = ret_i + 1
+
+
+            if self.falsenode is not None:
+                self.falsenode = ret_children_list[ret_i]
 
         return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
 
@@ -2110,8 +2160,8 @@ class DFEvalValue(DFNode):
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -2170,8 +2220,8 @@ class DFUndefined(DFNode):
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -2230,8 +2280,8 @@ class DFHighImpedance(DFNode):
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -2298,8 +2348,8 @@ class DFDelay(DFNotTerminal):
         if self.nextnode is not None:
             self.nextnode.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -2430,8 +2480,8 @@ class DFSyscall(DFNotTerminal):
         for n in self.nextnodes:
             n.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and self.syscall == DFNode.syscall and self.parentstr == DFNode.parentstr:
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and self.syscall == DFNode_i.syscall and self.parentstr == DFNode_i.parentstr:
             return True
         else:
             return False
@@ -2716,7 +2766,15 @@ class Bind(object):
     def toPrint(self):
         print(str(self.selfdesignnum), "Bind", str(self.dest))
 
-    def IDNeighbour(self, preNode, headScope, design_i, preNode_level=None, info_str=None):
+    def toStrForBveTest(self):
+        ret = ''
+        if self.dest is not None: ret += ' dest:' + str(self.dest)
+        if self.msb is not None: ret += ' msb:' + self.msb.tostr()
+        if self.lsb is not None: ret += ' lsb:' + self.lsb.tostr()
+
+        return ret
+
+    def IDNeighbour(self, preNode, headScope, design_i, bvhasmulti, preNode_level=None, info_str=None):
         self.selfdesignnum = design_i
         self.node_level = 0
 
@@ -2752,6 +2810,8 @@ class Bind(object):
         self.MCSbindgen_nodesplit = False
         self.MCSbindgen_visited = False
 
+        self.bvhasmulti = bvhasmulti
+
     def IDFirstM_AB(self, designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list):
 
         if self.ptr is not None:
@@ -2761,8 +2821,8 @@ class Bind(object):
             self.tree.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
 
-    def MCS_NodeCmp(self, DFNode):
-        if type(self) == type(DFNode) and str(self.dest) == str(DFNode.dest):# and self.parentstr == DFNode.parentstr
+    def MCS_NodeCmp(self, DFNode_i):
+        if type(self) == type(DFNode_i) and str(self.dest) == str(DFNode_i.dest):# and self.parentstr == DFNode.parentstr
             return True
         else:
             return False
@@ -2782,14 +2842,14 @@ class Bind(object):
 
         for designmatched_i in range(0, designnum):
 
-            if designmatched_i in self.designAtoB_dict and designmatched_i != self.selfdesignnum:
+            if self.bvhasmulti == False and designmatched_i in self.designAtoB_dict and designmatched_i != self.selfdesignnum:
                 self_matcheddesign_i_list.append(True)
                 mcsmatch_cnt = mcsmatch_cnt + 1
             else:
                 self_matcheddesign_i_list.append(False)
 
         # Since it is the head, if there is a match, than node_cnt must be 1
-        if self.designAtoB_dict:
+        if self.bvhasmulti == False and self.designAtoB_dict:
             mcshead_list.append(self)
             mcsnode_cnt = 1
 
@@ -2808,7 +2868,7 @@ class Bind(object):
 
     def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer, M_B_bool=None):
 
-        ### First Node should be with mcs
+        ### First Node should be with mcs <- actually that may not be true
 
         if self.MCSbindgen_visited == True:
             print("binddest already visited.....", end=' ')
@@ -2894,6 +2954,14 @@ class Bind(object):
         if self.ptr is not None: self.ptr.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
         if self.tree is not None: self.tree.fixpartsel(headScope, fixpartsel_termdict, fixpartsel_binddict, assign_analyzer, partsel_cnt_packaslist)
 
+
+    def MCSBindGenSplitHead(self, new_node, old_node):
+
+        if self.ptr is not None and id(self.ptr) == id(old_node):
+            self.ptr = new_node
+
+        elif self.tree is not None and id(self.tree) == id(old_node):
+            self.tree = new_node
 
     def traverse(self, sigDiff, muxIdfy, options, info_dict, info_op = None, info_str=None):
 
