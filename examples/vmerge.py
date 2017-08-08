@@ -48,7 +48,7 @@ def generateDataFlow(filelist, topmodule, noreorder, nobind, preprocess_include,
     return analyzer
 
 
-def createScopetoStrMap(design_i, bindlist, designbiStr_dict_list, designbvStr_dict_list):
+def createScopetoStrMap(design_i, bindlist, designbiStr_dict_list, designbvStr_dict_list, designtermdict_list):
     designbiStr_dict = {}
     designbvStr_dict = {}
 
@@ -66,7 +66,7 @@ def createScopetoStrMap(design_i, bindlist, designbiStr_dict_list, designbvStr_d
             #bv.sort(key=lambda x: x.toStrForBveTest())
 
         for bve in bv:
-            bve.IDNeighbour(None,  bi.scopechain, design_i, bvhasmulti)
+            bve.IDNeighbour(None,  bi.scopechain, design_i, designtermdict_list, bvhasmulti)
 
 
 
@@ -214,11 +214,12 @@ def findMCSwTwo(M_AB, F_A, designB_i):
 
 
 
-def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, MCSassign_analyzer):
+def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, designtermdict_list, MCSassign_analyzer):
 
     MCSsig_cnt = 0
     MCSbinddict_list = []
     MCScommonbinddict = {}
+    MCScommontermdict = {}
 
     for di in range(0, designnum):
         MCSbinddict_list.append({})
@@ -229,7 +230,7 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
         headnode.toPrint()
 
         [MCSsig_cnt,ret_mcs_breakpt, ret_terminal_node] = \
-            headnode.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, MCSassign_analyzer)
+            headnode.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCScommontermdict, MCSassign_analyzer)
 
     for di in range(0, designnum):
         print('\n')
@@ -277,7 +278,7 @@ def handleFindGraphSize(headnodelist, designnum):
 """
 
 
-def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer):
+def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, designtermdict_list, MCSassign_analyzer):
     designMCSOutput_list = [] # this is used to identify the output ports between designs
 
     designM_AB_initial_list = []
@@ -300,13 +301,13 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
             designM_AB_initial_list.append(MCS_M_AB())
             designF_A_list.append(MCS_Node_Container())
 
-        for biB, bvB in bindlist_B:
-            for bveB in bvB:
+        #for biB, bvB in bindlist_B:
+            #for bveB in bvB:
                 ### Complexity: O(Nodes) + O(2 x Nodes) + ... + O(D x Nodes)
                 ###            = O(D^2 x Nodes)
                 ### However since inside "IDFirstM_AB" consists of getNode_M_B, and the worst case is O(Nodes)
                 ### Overall Complexity is O(D^2 x Nodes^2) TODO: better analysis for getNode_M_B
-                bveB.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
+                #bveB.IDFirstM_AB(designB_i, termo_set, designMCSOutput_list, designM_AB_initial_list, designF_A_list)
 
 
 
@@ -412,7 +413,7 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
         print("MCS head->>>>>>>>>>>>>>>>>2nd", node.selfdesignnum, node, node.graphsize, node.matchsize, node.matcheddesign, node.h_num)
 
 
-    mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, MCSassign_analyzer)
+    mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, designtermdict_list, MCSassign_analyzer)
 
 
 def codeToValue(instr):
@@ -778,6 +779,8 @@ def main():
     designbinddict_list = []
     designbindlist_list = []
 
+    designtermdict_list = []
+
     for design_i, analyzer in enumerate(designanalyzer_list):
         # sorting will cause O(nlogn), where n is the number of bindtree (head)
         binddict = analyzer.getBinddict()
@@ -786,9 +789,12 @@ def main():
         designbinddict_list.append(binddict)
         designbindlist_list.append(bindlist)
 
+        termdict = analyzer.getTerms()
+        designtermdict_list.append(termdict)
+
         # 0-1
         # let all the nodes find out who their neighbour as well
-        createScopetoStrMap(design_i, bindlist, designbiStr_dict_list, designbvStr_dict_list)
+        createScopetoStrMap(design_i, bindlist, designbiStr_dict_list, designbvStr_dict_list, designtermdict_list)
 
 
     # 0-2
@@ -798,8 +804,18 @@ def main():
                                             nobind=False,
                                             preprocess_include=[],
                                             preprocess_define=[])
+
+
+    for design, bindlist in enumerate(designbindlist_list): #traverse bindtree + 2
+
+        for bi, bv in bindlist:
+
+            for bve in bv:
+                print(bi, bve.tostr())
+
+
     #TODO: uncomment this for finding mcs
-    calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer)
+    calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, designtermdict_list, MCSassign_analyzer)
 
 
 
