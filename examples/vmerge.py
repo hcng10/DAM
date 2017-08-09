@@ -219,7 +219,7 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
     MCSsig_cnt = 0
     MCSbinddict_list = []
     MCScommonbinddict = {}
-    MCScommontermdict = {}
+    #MCScommontermdict = {}
 
     for di in range(0, designnum):
         MCSbinddict_list.append({})
@@ -230,7 +230,7 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
         headnode.toPrint()
 
         [MCSsig_cnt,ret_mcs_breakpt, ret_terminal_node] = \
-            headnode.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCScommontermdict, MCSassign_analyzer)
+            headnode.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer)
 
     for di in range(0, designnum):
         print('\n')
@@ -251,6 +251,8 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
             print(bi, bve.tostr())
 
     print('\n')
+
+    exit()
 
     return [designbinddict_list, MCScommonbinddict, ]
 
