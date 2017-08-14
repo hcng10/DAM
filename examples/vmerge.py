@@ -214,15 +214,16 @@ def findMCSwTwo(M_AB, F_A, designB_i):
 
 
 
-def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, designtermdict_list, MCSassign_analyzer):
+def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, MCSassign_analyzer):
 
     MCSsig_cnt = 0
-    MCSbinddict_list = []
+    MCSuncommonbinddict_list = []
     MCScommonbinddict = {}
-    #MCScommontermdict = {}
+    MCSnewtermdict_list = []
 
     for di in range(0, designnum):
-        MCSbinddict_list.append({})
+        MCSuncommonbinddict_list.append({})
+        MCSnewtermdict_list.append({})
 
     for hi, headnode in enumerate(mcshead_list):
         print('\n')
@@ -230,7 +231,7 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
         headnode.toPrint()
 
         [MCSsig_cnt,ret_mcs_breakpt, ret_terminal_node] = \
-            headnode.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer)
+            headnode.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSuncommonbinddict_list, MCSnewtermdict_list, MCSassign_analyzer)
 
     for di in range(0, designnum):
         print('\n')
@@ -241,7 +242,7 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
 
         print('seperated......................\n')
 
-        for bi, bv in MCSbinddict_list[di].items():
+        for bi, bv in MCSuncommonbinddict_list[di].items():
             for bve in bv:
                 print("--------->",di, bi, bve.tostr())
 
@@ -252,9 +253,23 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
 
     print('\n')
 
-    exit()
+    for di in range(0, designnum):
+        print('\n')
 
-    return [designbinddict_list, MCScommonbinddict, ]
+        for ti, tv in MCSnewtermdict_list[di].items():
+            print(ti, tv)
+
+    print('\n')
+
+    for di in range(0, designnum):
+        print('\n')
+
+        for ti, tv in MCSnewtermdict_list[di].items():
+            print(ti, tv)
+
+
+
+    return [designbinddict_list, MCSuncommonbinddict_list, MCScommonbinddict, MCSnewtermdict_list]
 
 
 """
@@ -280,7 +295,7 @@ def handleFindGraphSize(headnodelist, designnum):
 """
 
 
-def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, designtermdict_list, MCSassign_analyzer):
+def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer):
     designMCSOutput_list = [] # this is used to identify the output ports between designs
 
     designM_AB_initial_list = []
@@ -293,8 +308,8 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
     # 0-2i: navigate the entire graphs across designs to find the common nodes
     for designB_i in range(0, designnum):
         # 0-2i: You have to identify the starting common node, and we use the output
-        termo_set = designtermo_set_list[designB_i]
-        bindlist_B = designbindlist_list[designB_i]
+        #termo_set = designtermo_set_list[designB_i]
+        #bindlist_B = designbindlist_list[designB_i]
 
         designMCSOutput_list.append(MCS_Node_Container())
 
@@ -415,7 +430,7 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
         print("MCS head->>>>>>>>>>>>>>>>>2nd", node.selfdesignnum, node, node.graphsize, node.matchsize, node.matcheddesign, node.h_num)
 
 
-    mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, designtermdict_list, MCSassign_analyzer)
+    return mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, MCSassign_analyzer)
 
 
 def codeToValue(instr):
@@ -445,18 +460,18 @@ def codeToValue(instr):
 
     Complexity: O(No. of signals * no. of designs)
 """
-def createSignalList(analyzer, designterm_list, idx, sigdiffScope_Ref0, sigStr_Type, designtermo_set_list):
+def createSignalList(designterm_list, idx, sigdiffScope_Ref0, sigStr_Type, designtermo_set_list):
 
-    instances = analyzer.getInstances()
-    
-    print('Instance: ')
-    for module, instname in sorted(instances, key=lambda x: str(x[1])):
-        print((module, instname))
+    #instances = analyzer.getInstances()
 
-    term = analyzer.getTerms()
+    #print('Instance: ')
+    #for module, instname in sorted(instances, key=lambda x: str(x[1])):
+        #print((module, instname))
 
-    #designterm_list[idx] = term
-    designterm_list.append(term)
+    #term = analyzer.getTerms()
+    #designterm_list.append(term)
+
+    term = designterm_list[idx]
 
     designtermo_set = set()
     designtermo_set_list.append(designtermo_set)
@@ -483,7 +498,27 @@ def createSignalList(analyzer, designterm_list, idx, sigdiffScope_Ref0, sigStr_T
         if signaltype.isOutput(tv.termtype):
             designtermo_set.add(str(tk))
 
-    if idx > 0:
+
+    for tk, tv in term.items():
+
+        if tk in sigdiffScope_Ref0:
+            term0width = sigdiffScope_Ref0[tk][0]
+            for i in range(len(sigdiffScope_Ref0[tk]), idx):
+                sigdiffScope_Ref0[tk].append(0 - term0width)
+
+            sigdiffScope_Ref0[tk].append(tv.bitwidth - term0width)
+
+        else:
+            sigdiffScope_Ref0[tk] = []
+            for i in range(0, idx):
+                sigdiffScope_Ref0[tk].append(0)
+            sigdiffScope_Ref0[tk].append(tv.bitwidth)
+
+            sigStr_Type[str(tk)] = copy.deepcopy(tv.termtype)
+            if signaltype.isReg(sigStr_Type[str(tk)]): sigStr_Type[str(tk)].remove('Reg')
+
+
+    """if idx > 0:
         #check the diff in port no. between signals, the bitwidth in design0 is set as ref :D
         for tk, tv in term.items():
 
@@ -510,13 +545,13 @@ def createSignalList(analyzer, designterm_list, idx, sigdiffScope_Ref0, sigStr_T
                     sigdiffScope_Ref0[tk].append(tv.bitwidth - preterm.bitwidth)
 
                     sigStr_Type[str(tk)] = copy.deepcopy(tv.termtype)
-                    if signaltype.isReg(sigStr_Type[str(tk)]): sigStr_Type[str(tk)].remove('Reg')
+                    if signaltype.isReg(sigStr_Type[str(tk)]): sigStr_Type[str(tk)].remove('Reg')"""
 
-    print('Term:')
-    for tk, tv in term.items():
-        print(tk, tv.tostr())
-
-    print(' ')
+    # print('Term:')
+    # for tk, tv in term.items():
+    #     print(tk, tv.tostr())
+    #
+    # print(' ')
 
 
 """
@@ -531,7 +566,9 @@ def createSignalList(analyzer, designterm_list, idx, sigdiffScope_Ref0, sigStr_T
     Complexity: O(No. of signals * no. of designs)
 """
 
-def findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbit, sigdiffStr_Maxbit_Design):
+
+def findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbit, sigdiffStr_Maxbit_Design, designnum, \
+                          MCSuncommon_termstrlist_hack = None, postMCSmuxIdfy = None, postMCSfixing = None):
 
     for tk, tv in sigdiffScope_Ref0.items():
 
@@ -539,41 +576,92 @@ def findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbi
 
         maxbit = tv[0]
         maxpos = 0
+
+        signal_cnt = 0
+
+
         for i, e in enumerate(tv):
+            if i == 0:
+                if e != 0: signal_cnt = signal_cnt + 1
+            else:
+                if (ref0bit + e) != 0: signal_cnt = signal_cnt + 1
+
             if i > 0 and ref0bit + e > maxbit:
                 maxbit = ref0bit + e
                 maxpos = i
 
+        if signal_cnt == 1: continue
+
         tk_str = str(tk)
         sigdiffStr_Refmax[tk_str] = []
+
+        #nasty hack
+        if postMCSfixing != None and postMCSfixing == True:
+            muxIdfy = MuxIdfy(tk_str)
+            muxIdfy.headmux = True
+            muxIdfy.termMultiNum = 1
+            muxIdfy.hasCmp = True
+
+            postMCSmuxIdfy[tk_str] = muxIdfy
+            MCSuncommon_termstrlist_hack.append([tk, tk_str])
+
+        diff_cnt = 0
         bitdiffval = 0
         for i, e in enumerate(tv):
             if i == 0:
                 bitdiffval = 0 if maxpos == i else e - maxbit
-                #sigdiffStr_Refmax[tk_str][i] = 0 if maxpos == i else e - maxbit
+                # sigdiffStr_Refmax[tk_str][i] = 0 if maxpos == i else e - maxbit
             else:
                 bitdiffval = 0 if maxpos == i else (ref0bit + e) - maxbit
-                #sigdiffStr_Refmax[tk_str][i] = 0 if maxpos == i else (ref0bit + e) - maxbit
+                # sigdiffStr_Refmax[tk_str][i] = 0 if maxpos == i else (ref0bit + e) - maxbit
+
             sigdiffStr_Refmax[tk_str].append(bitdiffval)
 
             if bitdiffval == 0: sigdiffStr_Maxbit_Design[tk_str] = i
 
+            if not (bitdiffval == 0 or bitdiffval + maxbit == 0):
+                diff_cnt = diff_cnt + 1
+
         sigdiffStr_Maxbit[tk_str] = maxbit
 
+        # it means basically there are no multi-bit (hack again :()
+        if postMCSfixing == None and diff_cnt == 0:
+            del sigdiffStr_Refmax[tk_str]
+
+
+    # sometimes it might contain insufficient value, and we have to append that
+    for tk_str, tv in sigdiffStr_Refmax.items():
+        if len(tv) != designnum:
+
+            for i in range(len(tv), designnum):
+                tv.append(0 - sigdiffStr_Maxbit[tk_str])
 
 
 
-def chgBindDestAfterMuxGen(options, design, bindlist, bindMuxinfodict_list, sigdiffStr_Refmax, sigdiffStr_Maxbit, concatanalyzer, partselectanalyzer):
+
+
+def chgBindDestAfterMuxGen_MCS(options, design, bindlist, bindMuxinfodict_list, sigdiffStr_Refmax, sigdiffStr_Maxbit,\
+                           concatanalyzer, partselectanalyzer, postMCSfixing = None):
     for i in range(len(bindlist) - 1, -1, -1):
         bi = bindlist[i][0]
         bv = bindlist[i][1]#TODO fix if there are multiple bv
 
         bi_str = str(bi)
-        bindMuxinfo = bindMuxinfodict_list[design][bi_str]
-        bindBrIdfyDict = bindMuxinfo.brIdfyDict
+
+        #nasty hack
+        if postMCSfixing == None or postMCSfixing == False:
+            bindMuxinfo = bindMuxinfodict_list[design][bi_str]
+            bindBrIdfyDict = bindMuxinfo.brIdfyDict
+
+
 
         # (5-a) Consider the head-is-multi case
         if bi_str in sigdiffStr_Refmax:
+            #hack again :(
+            if postMCSfixing != None and postMCSfixing == True:
+                postMCSmuxIdfy = bindMuxinfodict_list
+                bindMuxinfo = postMCSmuxIdfy[bi_str]
+
             # (5-aI)    case 1: tree common, but with multi-bit and compare
             if bindMuxinfo.termMultiNum > 0 and bindMuxinfo.hasCmp:
                 #TODO: Improve the compare mechanism in the future
@@ -581,9 +669,10 @@ def chgBindDestAfterMuxGen(options, design, bindlist, bindMuxinfodict_list, sigd
                 muxingscope = bi.scopechain[-1]
                 muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
 
-                for bve in bv:
-                    bve.bindDestVModify(BIND_CHILD_WITH_MULTI, options, design, concatanalyzer, partselectanalyzer,
-                                        sigdiffStr_Refmax, sigdiffStr_Maxbit)
+                if postMCSfixing == None or postMCSfixing == False:
+                    for bve in bv:
+                        bve.bindDestVModify(BIND_CHILD_WITH_MULTI, options, design, concatanalyzer, partselectanalyzer,
+                                            sigdiffStr_Refmax, sigdiffStr_Maxbit)
 
             # (5-aII) case 2: entire tree common but no multi-bit
             #                 no need to care about 'compare' as well, bcos the subtree is essentially the same
@@ -609,20 +698,102 @@ def chgBindDestAfterMuxGen(options, design, bindlist, bindMuxinfodict_list, sigd
         """
         # (5-b) take care the branch portion in the tree, since the conditional is usually evaluated to 1-bit,
         #       we don't need to consider bi, I think
-        for bve in bv:
-            bve.bindDestBrModify(options, bindBrIdfyDict, design, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, False)
+        if postMCSfixing == None or postMCSfixing == False:
+            for bve in bv:
+                bve.bindDestBrModify(options, bindBrIdfyDict, design, partselectanalyzer, sigdiffStr_Refmax, sigdiffStr_Maxbit, False)
+
+
+def chgBindDestAfterMuxGen(options, designnum, bindlist, bindMuxinfodict, sigdiffStr_Refmax, sigdiffStr_Maxbit, \
+                           concatanalyzer, partselectanalyzer):
+    bindlistlen = len(bindlist)
+    for i in range(bindlistlen - 1, -1, -1):
+        bi = bindlist[i][0]
+        bv = bindlist[i][1]  # TODO fix if there are multiple bv
+
+        bi_str = str(bi)
+
+        # nasty hack
+
+        bindMuxinfo = bindMuxinfodict[bi_str]
+        bindBrIdfyDict = bindMuxinfo.brIdfyDict
+
+        # (5-a) Consider the head-is-multi case
+        if bi_str in sigdiffStr_Refmax:
+
+            # (5-aI)    case 1: tree common, but with multi-bit and compare
+            if bindMuxinfo.termMultiNum > 0 and bindMuxinfo.hasCmp:
+                # TODO: Improve the compare mechanism in the future
+                # if you have 'compare' in bindtree, we separate that to TWO bindtree to make things simple
+
+                for design_i in range(0, designnum):
+
+                    bindchg = False
+                    if design_i == bv[0].selfdesignnum:
+
+                        muxingscope = bi.scopechain[-1]
+                        muxingscope.scopename = muxingscope.scopename + "_mux" + str(design_i)
+
+                        for bve in bv:
+                            bve.bindDestVModify(BIND_CHILD_WITH_MULTI, options, design_i, concatanalyzer,
+                                                partselectanalyzer,
+                                                sigdiffStr_Refmax, sigdiffStr_Maxbit)
+
+                        bindchg = True
+
+
+                    elif bv[0].matcheddesign[design_i] == True:
+                        newbindlist = copy.deepcopy(bindlist[i])
+
+                        bi = newbindlist[0]
+                        bv = newbindlist[1]  # TODO fix if there are multiple bv
+
+                        muxingscope = bi.scopechain[-1]
+                        muxingscope.scopename = muxingscope.scopename + "_mux" + str(design_i)
+
+                        for bve in bv:
+                            bve.bindDestVModify(BIND_CHILD_WITH_MULTI, options, design_i,\
+                                                concatanalyzer, partselectanalyzer,\
+                                                sigdiffStr_Refmax, sigdiffStr_Maxbit)
+
+                        bindchg = True
+
+                    # (5-b) take care the branch portion in the tree, since the conditional is usually evaluated to 1-bit,
+                    #       we don't need to consider bi, I think
+                    if bindchg == True:
+                        for bve in bv:
+                            bve.bindDestBrModify(options, bindBrIdfyDict, design_i, partselectanalyzer,
+                                                 sigdiffStr_Refmax,
+                                                 sigdiffStr_Maxbit, False)
+
+
+            # (5-aII) case 2: entire tree common but no multi-bit
+            #                 no need to care about 'compare' as well, bcos the subtree is essentially the same
+            #         case 3: tree common, with multi-bit but no cmp
+            else:
+                # Design 0, change the head only, no need to change subtree
+
+                muxingscope = bi.scopechain[-1]
+                muxingscope.scopename = muxingscope.scopename + "_mux"
+
 
 
 
 def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict_list, sigdiffStr_Refmax, sigdiffStr_Maxbit_Design,
-                                                                    muxterm_dict, muxtermStr_ind_dict, options):
+                                                                    muxterm_dict, muxtermStr_ind_dict, options, postMCSfixing = None):
     # in TERMs, the format is [scope: signals]
     for ti, tv in termdict.items():
         ti_str = str(ti)
 
+        #nasty hack
+        if postMCSfixing == None or postMCSfixing == False:
+            bindMuxinfodict = bindMuxinfodict_list[design]
+
+        elif (postMCSfixing != None and postMCSfixing == True) :
+            bindMuxinfodict = bindMuxinfodict_list
+
         # some signals are not in the bindlist, such as inputs
-        if ti_str in bindMuxinfodict_list[design]:
-            bindMuxinfo = bindMuxinfodict_list[design][ti_str]
+        if ti_str in bindMuxinfodict:
+            bindMuxinfo = bindMuxinfodict[ti_str]
 
             # (6-a) Consider the head-is-multi case
             if ti_str in sigdiffStr_Refmax:
@@ -730,11 +901,7 @@ def main():
 
     filelist = []
     designanalyzer_list = []
-    designterm_list = []
-    sigdiffScope_Ref0 = {}
-    sigStr_Type = {}
 
-    designtermo_set_list = []
 
 
 
@@ -757,14 +924,41 @@ def main():
                                             preprocess_include=options.include,
                                             preprocess_define=options.define))
 
-        createSignalList(designanalyzer_list[idx], designterm_list, idx, sigdiffScope_Ref0, sigStr_Type, designtermo_set_list)
+        instances = designanalyzer_list[idx].getInstances()
+        #terms = designanalyzer_list[idx].getTerms()
+
+        #designterm_list.append(terms)
+
+        print('Instance: ')
+        for module, instname in sorted(instances, key=lambda x: str(x[1])):
+            print((module, instname))
+
+
+        #createSignalList(designterm_list, idx, sigdiffScope_Ref0, sigStr_Type, designtermo_set_list)
+
+
 
 
     """
-    0th: Find the common subgraph across different design
+    0th: Parse a file to obtain concat structure and PartSelect select
 
-        Data Structure:
-            designMCS_list, max common subgraph, where the list contains the common node stored from each design
+    """
+
+    concatanalyzer = generateDataFlow(ConcatFile, ConcatFileTop,
+                                            noreorder=False,
+                                            nobind=False,
+                                            preprocess_include=[],
+                                            preprocess_define=[])
+
+    partselectanalyzer = generateDataFlow(PartSelectFile, PartSelectFileTop,
+                                            noreorder=False,
+                                            nobind=False,
+                                            preprocess_include=[],
+                                            preprocess_define=[])
+
+
+    """
+    1st: Find the common subgraph across different design
 
 
         1. First mess around with bi...(in the original algorithm, it is based on input/ output),
@@ -773,6 +967,8 @@ def main():
         2. Get MCS for all the design combinations
 
     """
+
+    """1-A: get the mcs for all graph"""
 
     designbiStr_dict_list = []
     designbvStr_dict_list = []
@@ -809,45 +1005,158 @@ def main():
 
 
     for design, bindlist in enumerate(designbindlist_list): #traverse bindtree + 2
-
+        print('\n')
         for bi, bv in bindlist:
-
             for bve in bv:
                 print(bi, bve.tostr())
 
 
     #TODO: uncomment this for finding mcs
-    calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, designtermdict_list, MCSassign_analyzer)
+    [mdydesignbinddict_list, MCSuncommon_binddict_list, MCScommon_binddict, MCSnewtermdict_list] = \
+        calMCSAll(None, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer)
+    #designtermo_set_list
+
+
+    """1-B: fix the terms by grabbing the MCSuncommon bindest from the termdict,
+        and also merge the uncommon_bindest to create MCSuncommon_bindlist_list"""
+    MCSuncommon_termdict_list = []
+
+
+    for design_i, binddict in enumerate(mdydesignbinddict_list):
+        MCSuncommon_termdict_list.append({})
+        for bi, bv in binddict.items():
+
+            tv = MCSnewtermdict_list[design_i].pop(bi, None)
+            if tv != None:
+                MCSuncommon_termdict_list[design_i][tv.name] = tv
+            else:
+                tv = designtermdict_list[design_i].pop(bi, None)
+
+                if tv != None:
+                    MCSuncommon_termdict_list[design_i][tv.name] = tv
+
+            if tv!=None: print("moved terms...........", design_i, tv)
+
+
+    for design_i, binddict in enumerate(MCSuncommon_binddict_list):
+        for bi, bv in binddict.items():
+
+            tv = MCSnewtermdict_list[design_i].pop(bi, None)
+            if tv != None:
+                MCSuncommon_termdict_list[design_i][tv.name] = tv
+            else:
+                tv = designtermdict_list[design_i].pop(bi, None)
+
+                if tv != None:
+                    MCSuncommon_termdict_list[design_i][tv.name] = tv
+
+            if tv!=None: print("moved terms...........", design_i, tv)
+
+
+    for design_i, binddict in enumerate(MCSuncommon_binddict_list):
+        binddict.update(mdydesignbinddict_list[design_i])
+
+
+    MCSuncommon_bindlist_list = []
+    for design_i, binddict in enumerate(MCSuncommon_binddict_list):
+        bindlist = sorted(binddict.items(), key=lambda x: str(x[0]))
+        print("................", bindlist)
+        MCSuncommon_bindlist_list.append(bindlist)
 
 
 
-    """
-    1st: Parse a file to obtain concat structure and PartSelect select
+    """1-C: fix the binddest of non-MCS/ MCS entry point"""
+    MCSuncommon_sigdiffScope_Ref0 = {}
+    MCSuncommon_sigStr_Type = {}
+    MCSuncommon_designtermo_set_list = []
 
-    """
+    MCSuncommon_bindMuxinfo = []
 
-    concatanalyzer = generateDataFlow(ConcatFile, ConcatFileTop,
-                                            noreorder=False,
-                                            nobind=False,
-                                            preprocess_include=[],
-                                            preprocess_define=[])
 
-    partselectanalyzer = generateDataFlow(PartSelectFile, PartSelectFileTop,
-                                            noreorder=False,
-                                            nobind=False,
-                                            preprocess_include=[],
-                                            preprocess_define=[])
+
+    for design_i in range(0, len(MCSuncommon_termdict_list)):
+        MCSuncommon_bindMuxinfo.append({})
+        createSignalList(MCSuncommon_termdict_list, design_i, MCSuncommon_sigdiffScope_Ref0, \
+                                                    MCSuncommon_sigStr_Type, MCSuncommon_designtermo_set_list)
+
+
+
+    MCSuncommon_sigdiffStr_Refmax = {}
+    MCSuncommon_sigdiffStr_Maxbit = {}
+    MCSuncommon_sigdiffStr_Maxbit_Design = {}
+
+    #This two data structure is a hack
+    postMCSmuxIdfy = {}
+    MCSuncommon_termstrlist_hack = []
+
+    findsigdiffStr_Refmax(MCSuncommon_sigdiffScope_Ref0, MCSuncommon_sigdiffStr_Refmax, MCSuncommon_sigdiffStr_Maxbit, \
+                                            MCSuncommon_sigdiffStr_Maxbit_Design, len(dirlist), \
+                                            MCSuncommon_termstrlist_hack, postMCSmuxIdfy, True)
+    print(MCSuncommon_sigdiffScope_Ref0)
+    print(MCSuncommon_sigdiffStr_Refmax)
+
+    for ind, itm in MCSuncommon_sigdiffStr_Maxbit.items():
+        print("...............",ind, itm, MCSuncommon_sigdiffStr_Maxbit_Design)
+
+
+
+
+
+    """1-D: create mux for the entry point from uncommon binddest to common binddest"""
+    generateMuxDataStruct(options.topmodule, len(dirlist), None, None, MCSuncommon_sigdiffStr_Refmax,
+                          MCSuncommon_sigdiffStr_Maxbit, True)
+
+    [MCSuncommon_muxterm_dict, MCSuncommon_muxtermStr_ind_dict, MCSuncommon_muxtermStr_val_dict, MCSuncommon_muxbind_dict,\
+                MCSuncommon_muxbindStr_head_dict, MCSuncommon_muxbindStr_tree_dict] = \
+        generateMuxTemplate(options.topmodule, len(dirlist), MCSuncommon_termstrlist_hack, postMCSmuxIdfy, MCSuncommon_sigdiffStr_Refmax,
+                            MCSuncommon_sigdiffStr_Maxbit, MCSuncommon_sigStr_Type)
+
+
+    print("nothering.....?")
+    # for dicti, dictv in MCSuncommon_muxbind_dict.items():
+    #     for dictve in dictv:
+    #         print(dicti, dictve.tostr())
+
+    """1-E: fix the MCSuncommon_binddict_list by changing the proper name to connect to mux"""
+    for design_i, bindlist in enumerate(MCSuncommon_bindlist_list):
+        chgBindDestAfterMuxGen_MCS(options, design_i, bindlist, postMCSmuxIdfy, MCSuncommon_sigdiffStr_Refmax,\
+                               MCSuncommon_sigdiffStr_Maxbit, concatanalyzer, partselectanalyzer, True)
+
+    for design_i, bindlist in enumerate(MCSuncommon_bindlist_list) :
+        for bi, bv in bindlist:
+            for bve in bv:
+                print(design_i, bi, bve.tostr())
+
+    print('\n')
+    for bi, bv in MCSuncommon_muxbind_dict.items():
+        for bve in bv:
+            print(bi, bve.tostr())
+
+    """1-F: fix the MCSuncommon_binddict_list by changing the proper name to connect to mux"""
+    for design_i, termdict in enumerate(MCSuncommon_termdict_list):
+        chgTermsAfterMuxGen(design_i, termdict, postMCSmuxIdfy, MCSuncommon_sigdiffStr_Refmax, MCSuncommon_sigdiffStr_Maxbit_Design, \
+                            MCSuncommon_muxterm_dict, MCSuncommon_muxtermStr_ind_dict, options, True)
+
 
 
     """
     2nd: find different in sig bit-width with reference to max bit-width across design,
         until now we do not need to utilize the bind tree, we just need to navigate TERMS
     """
+    sigdiffScope_Ref0 = {}
+    sigStr_Type = {}
+    designtermo_set_list = []
+
+
+    for idx in range(0, len(dirlist)):
+        createSignalList(designtermdict_list, idx, sigdiffScope_Ref0, sigStr_Type, designtermo_set_list)
+
+
 
     sigdiffStr_Refmax = {}
     sigdiffStr_Maxbit = {}
     sigdiffStr_Maxbit_Design = {}
-    findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbit,sigdiffStr_Maxbit_Design)
+    findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbit,sigdiffStr_Maxbit_Design, len(dirlist))
 
     #TODO: can be removed***
     print(sigdiffStr_Refmax)
@@ -856,22 +1165,21 @@ def main():
 
 
     print('Bind:')
-    print(designanalyzer_list[0].getBinddict(), '\n')
-    bind_list = sorted(designanalyzer_list[0].getBinddict().items(),key=lambda x:str(x[0]))
+    common_bindlist = sorted(MCScommon_binddict.items(),key=lambda x:str(x[0]))
 
 
     print("bind_list")
-    for bi, bv in bind_list:
+    for bi, bv in common_bindlist:
         for bve in bv:
             # TODO:** need to fix partsel for mcs as well, by eval that
             # TODO:** currently u have not fixed that for every canditate
             # fix partsel here
-            print(bi, bve.tostr())
+            print(bve.selfdesignnum, bve.matcheddesign, bi, bve.tostr())
 
 
     print('\n')
 
-    # TODO: ***can be removed
+
 
 
 
@@ -886,6 +1194,25 @@ def main():
     #3.1 - 3.2: ID and count multi-node
     #bindMuxinfo = {}
     #info_dict = {}
+    bindMuxinfodict = {}
+    infodict_dict = {}
+
+
+    for bi, bv in common_bindlist:#traverse bindtree + 2
+        muxIdfy = MuxIdfy(str(bi))
+        bindMuxinfodict[str(bi)] = muxIdfy
+
+        infodict_dict[str(bi)] = {}
+
+        for bve in bv:
+            print("Common " " bindIdx:", bi, \
+              "\nbindTree:", bve.traverse(sigdiffStr_Refmax, muxIdfy, options, infodict_dict[str(bi)]))
+
+
+
+
+    """
+
     bindMuxinfodict_list = []
     infodict_list = []
 
@@ -901,6 +1228,7 @@ def main():
             for bve in bv:
                 print("Design", str(design), " bindIdx:", bi, \
                   "\nbindTree:", bve.traverse(sigdiffStr_Refmax, muxIdfy, options, infodict_list[design][str(bi)]))
+    """
 
     # TODO: can be removed***
     # for design, bindMuxinfodict in enumerate(bindMuxinfodict_list):
@@ -918,12 +1246,12 @@ def main():
     print("\n*************** 4th Step ***************")
     print(sigdiffStr_Refmax)
     print(sigdiffStr_Maxbit)
-    generateMuxDataStruct(options.topmodule, len(dirlist), designbindlist_list, bindMuxinfodict_list, sigdiffStr_Refmax,
+    generateMuxDataStruct(options.topmodule, len(dirlist), designbindlist_list, bindMuxinfodict, sigdiffStr_Refmax,
                           sigdiffStr_Maxbit)
 
-    bindMuxinfo = bindMuxinfodict_list[0]#TODO: just getting design 0 is a hack
+
     [muxterm_dict, muxtermStr_ind_dict, muxtermStr_val_dict, muxbind_dict, muxbindStr_head_dict, muxbindStr_tree_dict] = \
-        generateMuxTemplate(options.topmodule, len(dirlist), bind_list, bindMuxinfo, sigdiffStr_Refmax, sigdiffStr_Maxbit, sigStr_Type)
+        generateMuxTemplate(options.topmodule, len(dirlist), common_bindlist, bindMuxinfodict, sigdiffStr_Refmax, sigdiffStr_Maxbit, sigStr_Type)
 
 
 
@@ -938,20 +1266,19 @@ def main():
     """
 
     # traverse backward so that I can remove the element
-    for design, bindlist in enumerate(designbindlist_list):  # traverse bindtree + 4
+    #for design, bindlist in enumerate(designbindlist_list):  # traverse bindtree + 4
                                                 # (2 times bcos one is the bindtree the other is the branch in bindtree)
-        chgBindDestAfterMuxGen(options, design, bindlist, bindMuxinfodict_list, sigdiffStr_Refmax, sigdiffStr_Maxbit, concatanalyzer, partselectanalyzer)
+    chgBindDestAfterMuxGen(options, len(dirlist), common_bindlist, bindMuxinfodict, sigdiffStr_Refmax, sigdiffStr_Maxbit, concatanalyzer, partselectanalyzer)
 
 
 
-    for design, bindlist in enumerate(designbindlist_list):  # traverse bindtree + 3
-        for bi, bv in bindlist:
-            print(design, bi)
-            for bve in bv:
-                print(bve.tostr())
+    for bi, bv in common_bindlist:
 
-    term = analyzer.getTerms()
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", term)
+        for bve in bv:
+            print(bi, bve.tostr())
+
+    exit()
+
 
 
 

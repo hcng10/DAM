@@ -196,7 +196,7 @@ class DFNode(object):
     def MCSBindGenSplitHead(self, new_node, old_node): pass
 
 
-    def MCSsplitNode(self, MCSsig_cnt, MCScommonbinddict, designtermdict_list, MCSassign_analyzer):
+    def MCSsplitNode(self, headnode, MCSsig_cnt, MCScommonbinddict, designtermdict_list, MCSassign_analyzer):
 
         MCSassign_copied = copy.deepcopy(MCSassign_analyzer.getBinddict())
         self_Scopechain = copy.deepcopy(self.headScope)
@@ -226,12 +226,17 @@ class DFNode(object):
             mcsa_i.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
             mcsa_i.scopechain = self_Scopechain[:-1] + [mcsa_i.scopechain[-1]]
 
-            MCScommonbinddict[mcsa_i] = mcsa_v
+            if mcsa_i not in MCScommonbinddict:
+                MCScommonbinddict[mcsa_i] = mcsa_v
 
             self.parent.MCSBindGenSplitHead(terminal_node, self)
             self.parent = mcsa_v[0]
 
             terminal_node.matchedcnt = self.matchedcnt
+
+            mcsa_v[0].matchedcnt = self.matchedcnt
+            mcsa_v[0].selfdesignnum = self.selfdesignnum
+            mcsa_v[0].matcheddesign = headnode.matcheddesign
 
         self.MCSbindgen_nodesplit = True
 
@@ -289,10 +294,15 @@ class DFNode(object):
                 mcsa_i.scopechain = self_Scopechain[:-1] + [mcsa_i.scopechain[-1]]
 
                 # print(mcsa_v[0].tree, mcsa_v[0].dest, mcsa_i.scopechain, self.parentstr)
+                terminal_node.matchedcnt = self.matchedcnt
+                mcsa_v[0].matchedcnt = self.matchedcnt
+                mcsa_v[0].selfdesignnum = self.selfdesignnum
+                mcsa_v[0].matcheddesign = self.matcheddesign
 
 
                 MCSbinddict_list[self.selfdesignnum][mcsa_i] = mcsa_v
                 self.parent = mcsa_v[0]
+
 
                 MCSsig_cnt = MCSsig_cnt + 1
 
@@ -337,7 +347,7 @@ class DFNode(object):
                 if ti.scopechain[-1].scopename == 'o':
                     tv_copied = copy.deepcopy(tv)
 
-                    tv_copied.name.scopechain[-1].scopename = "partsel_sig" + str(MCSsig_cnt)
+                    tv_copied.name.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
                     tv_copied.name.scopechain = self_Scopechain[:-1] + [tv_copied.name.scopechain[-1]]
 
                     designtermdict_list[self.selfdesignnum][tv_copied.name] = tv_copied
@@ -366,6 +376,13 @@ class DFNode(object):
 
                 MCSsig_cnt = MCSsig_cnt + 1
 
+                # put the info back
+                terminal_node.matchedcnt = self.matchedcnt
+
+                mcsa_v[0].matchedcnt = self.matchedcnt
+                mcsa_v[0].selfdesignnum = self.selfdesignnum
+                mcsa_v[0].matcheddesign = self.matcheddesign
+
             self.MCSbindgen_nodesplit = True
 
             return [MCSsig_cnt, True, terminal_node, None]
@@ -382,7 +399,7 @@ class DFNode(object):
                     print(".....I got to split to node.....", end=' ')
                     self.toPrint()
 
-                    self.MCSsplitNode(MCSsig_cnt, MCScommonbinddict, designtermdict_list, MCSassign_analyzer)
+                    self.MCSsplitNode(headnode, MCSsig_cnt, MCScommonbinddict, designtermdict_list, MCSassign_analyzer)
 
                     for di, dv in enumerate(headnode.matcheddesign):
                         if dv == True:
@@ -391,7 +408,7 @@ class DFNode(object):
                                 exit()
 
                             else:
-                                self.designAtoB_dict[di].MCSsplitNode(MCSsig_cnt, MCScommonbinddict, designtermdict_list, MCSassign_analyzer)
+                                self.designAtoB_dict[di].MCSsplitNode(headnode, MCSsig_cnt, MCScommonbinddict, designtermdict_list, MCSassign_analyzer)
 
 
                     MCSsig_cnt = MCSsig_cnt + 1

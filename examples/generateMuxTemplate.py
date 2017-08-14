@@ -23,7 +23,7 @@ mux_rn = '_rn0_q'
 mux_verilogtemplate = ""
 
 design_bindlist_list = []
-design_bindMuxinfodict_list = []
+design_bindMuxinfodict = None
 
 
 
@@ -88,7 +88,7 @@ def chgMuxTermScope(lowlevelsigname, muxforSig, muxtermStr_ind_dict, muxtermStr_
 
 
 
-def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit):
+def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing):
     print(mux_verilogtemplate)
     mux_file = open(mux_verilogtemplate, 'w+')
 
@@ -133,18 +133,23 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit)
 
     #assume that, when dealing with multi-bit, the corresponding tree is common across designs
     #therefore viewing the Muxinfo in the first design is already good
-    design_bindMuxinfodict = design_bindMuxinfodict_list[0]
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", design_bindMuxinfodict)
+    #if postMCSfixing != None and postMCSfixing == True:
+        #design_bindMuxinfodict = None
+    #else:
+        #design_bindMuxinfodict = design_bindMuxinfodict_list[0]
+        #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", design_bindMuxinfodict)
+
 
     """---------------------------------------------------------------------------------------------O(signals*design)"""
     for sstr, sbitdiff in sigdiffStr_Refmax.items():
         sstr_nodot = sstr.replace('.', '_')
 
         #There can be cases where the multi-bit has never been assigned
-        if sstr not in design_bindMuxinfodict: continue
-        bindMuxinfo = design_bindMuxinfodict[sstr]
+        if (postMCSfixing == None or postMCSfixing == False) and sstr not in design_bindMuxinfodict: continue
+        #bindMuxinfo = design_bindMuxinfodict[sstr]
 
-        if bindMuxinfo.termMultiNum > 0 and bindMuxinfo.hasCmp:
+        if (postMCSfixing != None and postMCSfixing == True) or \
+                    (design_bindMuxinfodict[sstr].termMultiNum > 0 and design_bindMuxinfodict[sstr].hasCmp):
             mux_file.write('    wire [`MUX_%s_O_WIDTH - 1:0] %s;\n' % (sstr_nodot, sstr_nodot))
 
             # create wires
@@ -154,7 +159,7 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit)
             # create the mux
             mux_file.write('    mux_%s mux_%s(.sel(sel), ' % (sstr_nodot, sstr_nodot))
             for i in range(0, design_num):
-                if sbitdiff[i] == 0:
+                if sbitdiff[i] == 0 or (sbitdiff[i] + sigdiffScope_Maxbit[sstr]) == 0:
                     wrsignal = '%s_mux%d' % (sstr_nodot, i)  # sbitdiff[i] is a negative number
                 else:
                     wrsignal = '{%d\'d0, %s_mux%d[%d:0]}' % (
@@ -174,8 +179,12 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit)
             #create the mux
             mux_file.write('    mux_%s mux_%s(.sel(sel), ' % (sstr_nodot, sstr_nodot))
             for i in range(0, design_num):
-                if sbitdiff[i] == 0: wrsignal = '%s_mux' %(sstr_nodot)  #sbitdiff[i] is a negative number
-                else: wrsignal = '{%d\'d0, %s_mux[%d:0]}' %(0-sbitdiff[i], sstr_nodot, sigdiffScope_Maxbit[sstr]+sbitdiff[i]-1)
+                if sbitdiff[i] == 0:
+                    wrsignal = '%s_mux' %(sstr_nodot)  #sbitdiff[i] is a negative number
+                elif  (sbitdiff[i] + sigdiffScope_Maxbit[sstr]) == 0:
+                    wrsignal = ''
+                else:
+                    wrsignal = '{%d\'d0, %s_mux[%d:0]}' %(0-sbitdiff[i], sstr_nodot, sigdiffScope_Maxbit[sstr]+sbitdiff[i]-1)
 
                 mux_file.write('.d%d(%s), ' %(i, wrsignal))
 
@@ -192,17 +201,18 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit)
     mux_file.close()
 
 
-def generateMuxDataStruct(prefixName, design_num, designbindlist_list, bindMuxinfodict_list, sigdiffStr_Refmax, sigdiffScope_Maxbit):
+
+def generateMuxDataStruct(prefixName, design_num, designbindlist_list, bindMuxinfodict, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing = None):
     global mux_verilogtemplate
     mux_verilogtemplate = prefixName + "__mux.v"
 
     global design_bindlist_list
     design_bindlist_list = designbindlist_list
 
-    global design_bindMuxinfodict_list
-    design_bindMuxinfodict_list = bindMuxinfodict_list
+    global design_bindMuxinfodict
+    design_bindMuxinfodict = bindMuxinfodict
 
-    createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit)
+    createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing)
 
 
 def scopeToStr_MuxDataStruct(muxterm_dict, muxbind_dict, reNewDict=None):
