@@ -182,7 +182,7 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit,
                 if sbitdiff[i] == 0:
                     wrsignal = '%s_mux' %(sstr_nodot)  #sbitdiff[i] is a negative number
                 elif  (sbitdiff[i] + sigdiffScope_Maxbit[sstr]) == 0:
-                    wrsignal = ''
+                    wrsignal = '0'
                 else:
                     wrsignal = '{%d\'d0, %s_mux[%d:0]}' %(0-sbitdiff[i], sstr_nodot, sigdiffScope_Maxbit[sstr]+sbitdiff[i]-1)
 
@@ -291,6 +291,7 @@ def generateMuxTemplate(prefixName, design_num, bind_list, bindMuxinfo, sigdiffS
         mux_rn2 = mux_rn.replace('0', str(i))
         mux_binddest_list.append(mux_rn2)
 
+
     """ 3rd: start from bind tree perspective, help the signal to create mux (term will be changed with another function)
         Note the signal name in the mux file is composed of <level0>_<level1>_<old_sig_name>, so we need to convert it
         back to old_sig_name for terms and binddest
@@ -342,13 +343,16 @@ def generateMuxTemplate(prefixName, design_num, bind_list, bindMuxinfo, sigdiffS
             #   case 1: tree common, but with multi-bit and compare
             if muxIdfy.termMultiNum > 0 and muxIdfy.hasCmp:
                 for d in range(0, design_num):
+
                     muxforSig = 'mux_template.' + signame + '_mux' + str(d)
+                    print('lowlevelsigname', lowlevelsigname + '_mux' + str(d))
                     chgMuxTermScope(lowlevelsigname+ '_mux' + str(d), muxforSig, muxtermStr_ind_dict, muxtermStr_val_dict, scope_addtotree, bi, q=True)
 
             #   case 2: tree common, but with multi-bit and no compare
             #   case 3: entire tree common but no multi-bit
             else:
                 muxforSig = 'mux_template.' + signame + '_mux'
+                print('lowlevelsigname2', lowlevelsigname + '_mux' )
                 chgMuxTermScope(lowlevelsigname + '_mux', muxforSig, muxtermStr_ind_dict, muxtermStr_val_dict, \
                                 scope_addtotree, bi, q=True)
 

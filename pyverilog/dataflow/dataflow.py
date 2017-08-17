@@ -205,7 +205,7 @@ class DFNode(object):
             if ti.scopechain[-1].scopename == 'o':
                 tv_copied = copy.deepcopy(tv)
 
-                tv_copied.name.scopechain[-1].scopename = "partsel_sig" + str(MCSsig_cnt)
+                tv_copied.name.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
                 tv_copied.name.scopechain = self_Scopechain[:-1] + [tv_copied.name.scopechain[-1]]
 
                 designtermdict_list[self.selfdesignnum][tv_copied.name] = tv_copied
@@ -269,7 +269,7 @@ class DFNode(object):
                 if ti.scopechain[-1].scopename == 'o':
                     tv_copied = copy.deepcopy(tv)
 
-                    tv_copied.name.scopechain[-1].scopename = "partsel_sig" + str(MCSsig_cnt)
+                    tv_copied.name.scopechain[-1].scopename = "mcs_sig" + str(MCSsig_cnt)
                     tv_copied.name.scopechain = self_Scopechain[:-1] + [tv_copied.name.scopechain[-1]]
 
                     designtermdict_list[self.selfdesignnum][tv_copied.name] = tv_copied
