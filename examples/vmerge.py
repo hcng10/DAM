@@ -7,7 +7,7 @@ from os import listdir
 from os.path import isfile, join
 import copy
 import re
-
+import time
 
 # the next line can be removed after installation
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -95,7 +95,7 @@ def findMCSwTwo(M_AB, F_A, designB_i):
     # Real deal of the algorithms starts here
     # Line 4: choose d_a
     while D_A.isEmpty() == False:
-        print("\n DA content ------>", D_A.ranking)
+        #a print("\n DA content ------>", D_A.ranking)
         d_a = D_A.chooseNode()
         # A: check if it is a node in non-0 design
         # B: check if it is a matched node
@@ -112,7 +112,7 @@ def findMCSwTwo(M_AB, F_A, designB_i):
 
                 # build a dictionary structure for line 11-12
                 d_a_neighbour.append(d_a_prime)
-            print("N_B, d_a", N_B, d_a, """:::""", d_a.parentstr)
+                #a print("N_B, d_a", N_B, d_a, """:::""", d_a.parentstr)
 
             C_B_prev = MCS_Node_Container()
             C_B_curr = MCS_Node_Container()
@@ -134,7 +134,7 @@ def findMCSwTwo(M_AB, F_A, designB_i):
                 C_B_prev = C_B_curr
                 C_B_curr = MCS_Node_Container()
 
-            print("The final cb list -------> ", C_B_prev.d)
+                #a print("The final cb list -------> ", C_B_prev.d)
             #for ii,iv in C_B_prev.d.items():
                 #print("The final cb list in str -------> ", ii.tostr())
 
@@ -165,7 +165,7 @@ def findMCSwTwo(M_AB, F_A, designB_i):
                         if cur_num > c_b_prime_neighbour_num:
                             c_b_prime = c_b_prime_e
 
-                print("The chosen c_b_prime (with the content in string) -------> ", c_b_prime, c_b_prime.tostr(), ":::",  c_b_prime.parentstr)
+                #a print("The chosen c_b_prime (with the content in string) -------> ", c_b_prime, c_b_prime.tostr(), ":::",  c_b_prime.parentstr)
 
                 # line 13
                 M_AB.insertNode_M_AtoB(d_a, c_b_prime)
@@ -188,7 +188,7 @@ def findMCSwTwo(M_AB, F_A, designB_i):
                 c_b_prime.matchedcnt = c_b_prime.matchedcnt + 1
                 d_a.matchedcnt = d_a.matchedcnt + 1
 
-                print("Pointers designB_i-------> ", 'A', designB_i, d_a.designAtoB_dict, 'B', d_a.selfdesignnum, c_b_prime.designBtoA_dict)
+                #a print("Pointers designB_i-------> ", 'A', designB_i, d_a.designAtoB_dict, 'B', d_a.selfdesignnum, c_b_prime.designBtoA_dict)
 
                 commonNode_count = commonNode_count + 1
 
@@ -209,7 +209,7 @@ def findMCSwTwo(M_AB, F_A, designB_i):
                 F_A.insertNode(d_a)
 
 
-    print("The final mcs node count: ", commonNode_count)
+    #a print("The final mcs node count: ", commonNode_count)
 
 
 
@@ -226,13 +226,13 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
         MCSnewtermdict_list.append({})
 
     for hi, headnode in enumerate(mcshead_list):
-        print('\n')
-        print(headnode.selfdesignnum, end=' ')
-        headnode.toPrint()
+        #a print('\n')
+        #a print(headnode.selfdesignnum, end=' ')
+        #a headnode.toPrint()
 
         [MCSsig_cnt,ret_mcs_breakpt, ret_terminal_node] = \
             headnode.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSuncommonbinddict_list, MCSnewtermdict_list, MCSassign_analyzer)
-
+    """a
     for di in range(0, designnum):
         print('\n')
 
@@ -266,7 +266,7 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
 
         for ti, tv in MCSnewtermdict_list[di].items():
             print(ti, tv)
-
+    """
 
 
     return [designbinddict_list, MCSuncommonbinddict_list, MCScommonbinddict, MCSnewtermdict_list]
@@ -366,11 +366,11 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
                                 desttobemapped_B.matchedcnt = desttobemapped_B.matchedcnt + 1
                                 bvA.matchedcnt = bvA.matchedcnt + 1
 
-                                print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~biA", designB_i, designA_i, bvA.toStrForBveTest(), bvA.designAtoB_dict)
+                                #a print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~biA", designB_i, designA_i, bvA.toStrForBveTest(), bvA.designAtoB_dict)
 
                                 if M_AB.getNode_M_B(desttobemapped_B) == None:
                                     M_AB.insertNode_M_B(desttobemapped_B)
-                                    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~biB", desttobemapped_B.toStrForBveTest() )
+                                    #a print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~biB", desttobemapped_B.toStrForBveTest() )
 
 
                         #for bvB in bvStr_dict_B[bi_strA]:
@@ -426,8 +426,8 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
 
     mcshead_list.sort(key=lambda x: x.h_num, reverse=True)
 
-    for node in mcshead_list:
-        print("MCS head->>>>>>>>>>>>>>>>>2nd", node.selfdesignnum, node, node.graphsize, node.matchsize, node.matcheddesign, node.h_num)
+    #a for node in mcshead_list:
+        #a print("MCS head->>>>>>>>>>>>>>>>>2nd", node.selfdesignnum, node, node.graphsize, node.matchsize, node.matcheddesign, node.h_num)
 
 
     return mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_list, MCSassign_analyzer)
@@ -494,7 +494,7 @@ def createSignalList(designterm_list, idx, sigdiffScope_Ref0, sigStr_Type, desig
                 if not signaltype.isReg(tv.termtype)and not signaltype.isWire(tv.termtype):
                     tv.termtype.add('Wire')
 
-        print(tk, tv.termtype)
+        #a print(tk, tv.termtype)
 
         if signaltype.isOutput(tv.termtype):
             designtermo_set.add(str(tk))
@@ -853,7 +853,10 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict, sigdiffStr_Refmax, si
                 # which means it will not be used as IO
                 if signaltype.isInput(tv.termtype): tv.termtype.remove('Input')
                 elif signaltype.isInout(tv.termtype): tv.termtype.remove('Inout')
-                elif signaltype.isOutput(tv.termtype): tv.termtype.remove('Output')
+                elif signaltype.isOutput(tv.termtype):
+                    tv.termtype.remove('Output')
+                    if not signaltype.isReg(tv.termtype) and not signaltype.isWire(tv.termtype):
+                        tv.termtype.add('Wire')
 
         elif postMCSfixing != None and postMCSfixing == True \
                 and ti_str in MCSsemicommon_termStrdict and MCSsemicommon_termStrdict[ti_str][design]:
@@ -862,7 +865,10 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict, sigdiffStr_Refmax, si
 
             if signaltype.isInput(tv.termtype): tv.termtype.remove('Input')
             elif signaltype.isInout(tv.termtype): tv.termtype.remove('Inout')
-            elif signaltype.isOutput(tv.termtype): tv.termtype.remove('Output')
+            elif signaltype.isOutput(tv.termtype):
+                tv.termtype.remove('Output')
+                if not signaltype.isReg(tv.termtype) and not signaltype.isWire(tv.termtype):
+                    tv.termtype.add('Wire')
 
             # (6-b) For other signals, they are added with 0/1/2 as postfix
             """
@@ -1049,6 +1055,9 @@ def main():
                 print(bi, bve.tostr())
 
 
+
+    starttime = time.time()
+
     #TODO: uncomment this for finding mcs
     [mdydesignbinddict_list, MCSuncommon_binddict_list, MCScommon_binddict, MCSnewtermdict_list] = \
         calMCSAll(None, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer)
@@ -1073,7 +1082,7 @@ def main():
                 if tv != None:
                     MCSuncommon_termdict_list[design_i][tv.name] = tv
 
-            if tv!=None: print("moved terms...........", design_i, tv)
+            #a if tv!=None: print("moved terms...........", design_i, tv)
 
 
     for design_i, binddict in enumerate(MCSuncommon_binddict_list):
@@ -1088,7 +1097,7 @@ def main():
                 if tv != None:
                     MCSuncommon_termdict_list[design_i][tv.name] = tv
 
-            if tv!=None: print("moved terms...........", design_i, tv)
+            #a if tv!=None: print("moved terms...........", design_i, tv)
 
 
 
@@ -1105,8 +1114,8 @@ def main():
     #     for ti, tv in termdict.items():
     #         print(design_i, ti, tv)
 
-    print('\n')
-    print('................',MCSuncommon_termdict_list)
+    #a print('\n')
+    #a print('................',MCSuncommon_termdict_list)
 
 
 
@@ -1118,8 +1127,9 @@ def main():
 
     MCSuncommon_bindlist_list = []
     for design_i, binddict in enumerate(MCSuncommon_binddict_list):
-        bindlist = sorted(binddict.items(), key=lambda x: str(x[0]))
-        print("................", bindlist)
+        #bindlist = sorted(binddict.items(), key=lambda x: str(x[0]))
+        bindlist = binddict.items()
+        #a print("................", bindlist)
         MCSuncommon_bindlist_list.append(bindlist)
 
 
@@ -1173,11 +1183,11 @@ def main():
     findsigdiffStr_Refmax(MCSuncommon_sigdiffScope_Ref0, MCSuncommon_sigdiffStr_Refmax, MCSuncommon_sigdiffStr_Maxbit, \
                                             MCSuncommon_sigdiffStr_Maxbit_Design, len(dirlist), \
                                             MCSuncommon_termstrlist_hack, postMCSmuxIdfy, True)
-    print(MCSuncommon_sigdiffScope_Ref0)
-    print(MCSuncommon_sigdiffStr_Refmax)
+    #a print(MCSuncommon_sigdiffScope_Ref0)
+    #a print(MCSuncommon_sigdiffStr_Refmax)
 
-    for ind, itm in MCSuncommon_sigdiffStr_Maxbit.items():
-        print("...............",ind, itm, MCSuncommon_sigdiffStr_Maxbit_Design)
+    #a for ind, itm in MCSuncommon_sigdiffStr_Maxbit.items():
+        #a print("...............",ind, itm, MCSuncommon_sigdiffStr_Maxbit_Design)
 
 
 
@@ -1193,7 +1203,7 @@ def main():
                             MCSuncommon_sigdiffStr_Maxbit, MCSuncommon_sigStr_Type)
 
 
-    print("nothering.....?")
+
     # for dicti, dictv in MCSuncommon_muxbind_dict.items():
     #     for dictve in dictv:
     #         print(dicti, dictve.tostr())
@@ -1203,6 +1213,7 @@ def main():
         chgBindDestAfterMuxGen_MCS(options, design_i, bindlist, postMCSmuxIdfy, MCSuncommon_sigdiffStr_Refmax,\
                                MCSuncommon_sigdiffStr_Maxbit, concatanalyzer, partselectanalyzer, MCSsemicommon_termStrdict, True)
 
+    """a
     for design_i, bindlist in enumerate(MCSuncommon_bindlist_list) :
         for bi, bv in bindlist:
             for bve in bv:
@@ -1212,6 +1223,7 @@ def main():
     for bi, bv in MCSuncommon_muxbind_dict.items():
         for bve in bv:
             print(bi, bve.tostr())
+    """
 
 
 
@@ -1249,23 +1261,24 @@ def main():
     findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbit,sigdiffStr_Maxbit_Design, len(dirlist))
 
     #TODO: can be removed***
-    print(sigdiffStr_Refmax)
-    print(sigdiffStr_Maxbit)
+    #a print(sigdiffStr_Refmax)
+    #a print(sigdiffStr_Maxbit)
 
 
 
-    print('Bind:')
-    common_bindlist = sorted(MCScommon_binddict.items(),key=lambda x:str(x[0]))
+    #a print('Bind:')
+    #common_bindlist = sorted(MCScommon_binddict.items(),key=lambda x:str(x[0]))
+    common_bindlist = MCScommon_binddict.items()
 
-
-    print("bind_list")
+    #a print("bind_list")
+    """
     for bi, bv in common_bindlist:
         for bve in bv:
             # TODO:** need to fix partsel for mcs as well, by eval that
             # TODO:** currently u have not fixed that for every canditate
             # fix partsel here
             print(bve.selfdesignnum, bve.matcheddesign, bi, bve.tostr())
-
+    """
 
     print('\n')
 
@@ -1279,7 +1292,7 @@ def main():
         1. ID multi-node
         2. Count multi-node and constant
     """
-    print("\n*************** 3rd Step ***************")
+    #print("\n*************** 3rd Step ***************")
 
     #3.1 - 3.2: ID and count multi-node
     #bindMuxinfo = {}
@@ -1295,8 +1308,9 @@ def main():
         infodict_dict[str(bi)] = {}
 
         for bve in bv:
-            print("Common " " bindIdx:", bi, \
-              "\nbindTree:", bve.traverse(sigdiffStr_Refmax, muxIdfy, options, infodict_dict[str(bi)]))
+            bve.traverse(sigdiffStr_Refmax, muxIdfy, options, infodict_dict[str(bi)])
+            #a print("Common " " bindIdx:", bi, \
+              #"\nbindTree:", bve.traverse(sigdiffStr_Refmax, muxIdfy, options, infodict_dict[str(bi)]))
 
 
 
@@ -1333,9 +1347,9 @@ def main():
         2. parse that file and get the bind tree data structure
         3. change the data structure accordingly
     """
-    print("\n*************** 4th Step ***************")
-    print(sigdiffStr_Refmax)
-    print(sigdiffStr_Maxbit)
+    #a print("\n*************** 4th Step ***************")
+    #a  print(sigdiffStr_Refmax)
+    #a print(sigdiffStr_Maxbit)
     generateMuxDataStruct(options.topmodule, len(dirlist), designbindlist_list, bindMuxinfodict, sigdiffStr_Refmax,
                           sigdiffStr_Maxbit)
 
@@ -1345,7 +1359,8 @@ def main():
 
 
 
-    print("\n*************** 5th Step ***************")
+
+    #a print("\n*************** 5th Step ***************")
     """
     5. Change the binddest structure (bi, bv) according to step 3.2, which includes:
         ->. handle the case where the head is with multi-bit
@@ -1360,6 +1375,7 @@ def main():
                                                 # (2 times bcos one is the bindtree the other is the branch in bindtree)
     chgBindDestAfterMuxGen(options, len(dirlist), common_bindlist, bindMuxinfodict, sigdiffStr_Refmax, sigdiffStr_Maxbit, concatanalyzer, partselectanalyzer)
 
+    """a
     for ti, tv in muxterm_dict.items():
         print("muxterm_dict",ti, tv)
 
@@ -1367,7 +1383,7 @@ def main():
 
         for bve in bv:
             print(bi, bve.tostr())
-
+    """
 
 
 
@@ -1379,13 +1395,12 @@ def main():
             a. For multi-bit signals, add one more signals and name it as <orignal_signal>_mux
             b. For others, change it to <orignal_signal>_<design_num>
     """
-    print("\n*************** 6th Step ***************")
+    #a print("\n*************** 6th Step ***************")
     for design, termdict in enumerate(designtermdict_list):
         chgTermsAfterMuxGen(design, termdict, bindMuxinfodict, sigdiffStr_Refmax, sigdiffStr_Maxbit_Design, \
                                                                 muxterm_dict, muxtermStr_ind_dict, options, False)
 
-
-
+    endtime = time.time()
 
     """
     7th : Combine all the term and bindtree into one data structure for code generation
@@ -1474,6 +1489,9 @@ def main():
 
     for ti, tv in newtermdict.items():
         print(ti, tv)
+
+    elapsed = endtime - starttime
+    print('..........................elapsed', elapsed)
 
 
 

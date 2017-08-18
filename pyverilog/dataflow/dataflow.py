@@ -247,18 +247,18 @@ class DFNode(object):
     def MCSBindGenDFNode(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
 
         if self.MCSbindgen_visited == True:
-            print("Terminal already visited.....", end=' ')
-            self.toPrint()
+            #a print("Terminal already visited.....", end=' ')
+            #a self.toPrint()
             return [MCSsig_cnt, False, None]
 
 
         # No need to go down bcos if it is a mcs, it will be visited again
         if M_B_bool != None or (self.mcs_breakpt == True and id(self) != id(headnode)):
-            if M_B_bool != None:
-                print("--> M_B_bool: Terminal got to be redirected.....",  "mcs_sig" + str(MCSsig_cnt), ".....", end=' ')
-            else:
-                print("Terminal got to be redirected.....", end=' ')
-            self.toPrint()
+            #a if M_B_bool != None:
+            #a print("--> M_B_bool: Terminal got to be redirected.....",  "mcs_sig" + str(MCSsig_cnt), ".....", end=' ')
+            #a else:
+            #a print("Terminal got to be redirected.....", end=' ')
+            #a self.toPrint()
 
             MCSassign_copied = copy.deepcopy(MCSassign_analyzer.getBinddict())
 
@@ -311,8 +311,8 @@ class DFNode(object):
         # I am the head case, or it is in the same MCS
         else:
             # jmp to the corresponding node in the other sub-tree
-            print("Terminal stays the same.....", end=' ')
-            self.toPrint()
+            #a print("Terminal stays the same.....", end=' ')
+            #a self.toPrint()
 
             self.MCSbindgen_visited = True
 
@@ -327,17 +327,17 @@ class DFNode(object):
                                 children_list, childrenstr_list, children_can_diff, M_B_bool=None):
         #if M_B_bool != None:
         if self.MCSbindgen_visited == True:
-            print("Node already visited.....", end=' ')
-            self.toPrint()
+            #a print("Node already visited.....", end=' ')
+            #a self.toPrint()
             return [MCSsig_cnt, False, None, None]
 
 
         if M_B_bool != None or (self.mcs_breakpt == True and id(self) != id(headnode)):
-            if M_B_bool != None:
-                print("---> M_B_bool: Node got to be redirected.....",  "mcs_sig" + str(MCSsig_cnt) , ".....",end=' ')
-            else:
-                print("Node got to be redirected.....", end=' ')
-            self.toPrint()
+            #a if M_B_bool != None:
+            #a print("---> M_B_bool: Node got to be redirected.....",  "mcs_sig" + str(MCSsig_cnt) , ".....",end=' ')
+            #a else:
+            #a print("Node got to be redirected.....", end=' ')
+            #a self.toPrint()
 
             MCSassign_copied = copy.deepcopy(MCSassign_analyzer.getBinddict())
 
@@ -388,16 +388,16 @@ class DFNode(object):
             return [MCSsig_cnt, True, terminal_node, None]
 
         else:
-            print("Node stays the same.....", end=' ')
-            self.toPrint()
+            #a print("Node stays the same.....", end=' ')
+            #a self.toPrint()
 
             #case that I am a head node, that means I have to split and form new tree
             if id(self) == id(headnode):
                 #if type(self.parent) != Bind:
 
                 if self.MCSbindgen_nodesplit == False:
-                    print(".....I got to split to node.....", end=' ')
-                    self.toPrint()
+                    #a print(".....I got to split to node.....", end=' ')
+                    #a self.toPrint()
 
                     self.MCSsplitNode(headnode, MCSsig_cnt, MCScommonbinddict, designtermdict_list, MCSassign_analyzer)
 
@@ -576,7 +576,7 @@ class DFTerminal(DFNode):
                         matchedoutput.matchedcnt = matchedoutput.matchedcnt + 1
                         self.matchedcnt = self.matchedcnt + 1
 
-                        print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", designB_i, designA_i, self.name, ":::",  self.parentstr, matchedoutput.designAtoB_dict)
+                        #a print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~", designB_i, designA_i, self.name, ":::",  self.parentstr, matchedoutput.designAtoB_dict)
 
 
 
@@ -1201,8 +1201,8 @@ class DFOperator(DFNotTerminal):
 
     def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_num):
 
-        print("B redirected.....", end=' ')
-        self.toPrint()
+        #a print("B redirected.....", end=' ')
+        #a self.toPrint()
 
         nextnodes_list = list(self.nextnodes)
 
@@ -1709,8 +1709,8 @@ class DFPointer(DFNotTerminal):
 
     def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_str):
 
-        print("B redirected.....", end=' ')
-        self.toPrint()
+        #a print("B redirected.....", end=' ')
+        #a self.toPrint()
 
         if nextnode_str == 'var':
             [MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
@@ -2140,8 +2140,8 @@ class DFBranch(DFNotTerminal):
 
         err = False
         if nextnode_str == 'condnode':
-            print("B redirected.....condnode", end=' ')
-            self.toPrint()
+            #a print("B redirected.....condnode", end=' ')
+            #a self.toPrint()
 
             [MCSsig_cnt, ret_mcs_breakpt_condnode, ret_terminal_node] = \
                 self.condnode.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
@@ -2151,8 +2151,8 @@ class DFBranch(DFNotTerminal):
 
 
         elif nextnode_str == 'truenode':
-            print("B redirected.....truenode", end=' ')
-            self.toPrint()
+            #a print("B redirected.....truenode", end=' ')
+            #a self.toPrint()
 
             [MCSsig_cnt, ret_mcs_breakpt_truenode, ret_terminal_node] = \
                 self.truenode.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
@@ -2161,8 +2161,8 @@ class DFBranch(DFNotTerminal):
             if ret_mcs_breakpt_truenode == False: err = True
 
         elif nextnode_str == 'falsenode':
-            print("B redirected.....falsenode", end=' ')
-            self.toPrint()
+            #a print("B redirected.....falsenode", end=' ')
+            #a self.toPrint()
 
             [MCSsig_cnt, ret_mcs_breakpt_falsenode, ret_terminal_node] = \
                 self.falsenode.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
@@ -3069,8 +3069,8 @@ class Bind(object):
         ### First Node should be with mcs <- actually that may not be true
 
         if self.MCSbindgen_visited == True:
-            print("binddest already visited.....", end=' ')
-            self.toPrint()
+            #a print("binddest already visited.....", end=' ')
+            #a self.toPrint()
             # bcos it is replicated, so return false even if it is a breakpt
             return [MCSsig_cnt, False, None]
 
@@ -3121,8 +3121,8 @@ class Bind(object):
 
     def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_str):
 
-        print("B redirected.....", end=' ')
-        self.toPrint()
+        #a print("B redirected.....", end=' ')
+        #a self.toPrint()
 
         err = False
         if nextnode_str == 'ptr':

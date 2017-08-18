@@ -89,7 +89,7 @@ def chgMuxTermScope(lowlevelsigname, muxforSig, muxtermStr_ind_dict, muxtermStr_
 
 
 def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing):
-    print(mux_verilogtemplate)
+    #a print(mux_verilogtemplate)
     mux_file = open(mux_verilogtemplate, 'w+')
 
     mux_file.write("`timescale 1ns / 1ps\n\n")
@@ -247,8 +247,8 @@ def generateMuxTemplate(prefixName, design_num, bind_list, bindMuxinfo, sigdiffS
     #mux_file = open(prefixName + "_mux.v", "w")
 
 
-    for sig in sigdiffStr_Refmax:
-        print(sig)
+    #a for sig in sigdiffStr_Refmax:
+        #a print(sig)
 
     analyzer = VerilogDataflowAnalyzer([prefixName + "__mux.v"], "mux_template",
                                            noreorder=False,
@@ -345,14 +345,14 @@ def generateMuxTemplate(prefixName, design_num, bind_list, bindMuxinfo, sigdiffS
                 for d in range(0, design_num):
 
                     muxforSig = 'mux_template.' + signame + '_mux' + str(d)
-                    print('lowlevelsigname', lowlevelsigname + '_mux' + str(d))
+                    #a print('lowlevelsigname', lowlevelsigname + '_mux' + str(d))
                     chgMuxTermScope(lowlevelsigname+ '_mux' + str(d), muxforSig, muxtermStr_ind_dict, muxtermStr_val_dict, scope_addtotree, bi, q=True)
 
             #   case 2: tree common, but with multi-bit and no compare
             #   case 3: entire tree common but no multi-bit
             else:
                 muxforSig = 'mux_template.' + signame + '_mux'
-                print('lowlevelsigname2', lowlevelsigname + '_mux' )
+                #a print('lowlevelsigname2', lowlevelsigname + '_mux' )
                 chgMuxTermScope(lowlevelsigname + '_mux', muxforSig, muxtermStr_ind_dict, muxtermStr_val_dict, \
                                 scope_addtotree, bi, q=True)
 
@@ -367,8 +367,8 @@ def generateMuxTemplate(prefixName, design_num, bind_list, bindMuxinfo, sigdiffS
     #     for bve in bv:
     #         print(bve.tostr())
 
-    for ti, tv in muxterm_dict.items():
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",ti, tv.termtype)
+    #a for ti, tv in muxterm_dict.items():
+        #a print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",ti, tv.termtype)
 
 
     """ 4nd: return a correct data structure to enable fast deletion in vmerge
