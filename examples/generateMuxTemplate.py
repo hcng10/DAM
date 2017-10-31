@@ -88,7 +88,8 @@ def chgMuxTermScope(lowlevelsigname, muxforSig, muxtermStr_ind_dict, muxtermStr_
 
 
 
-def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing):
+def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing, \
+                             MCSsemicommon_termStrSet, MCSsemicommon_termStrdict_list):
     #a print(mux_verilogtemplate)
     mux_file = open(mux_verilogtemplate, 'w+')
 
@@ -170,6 +171,26 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit,
             mux_file.write('.q(%s));\n' % (sstr_nodot))
 
         else:
+            #hack for semicommon-signal
+            tmpvalwritten = [-1 for x in range(design_num)]
+            if sstr in MCSsemicommon_termStrSet:
+
+                tmpboolwritten = [False for x in range(design_num)]
+
+                for design_i in range(0, design_num):
+                    if sstr in MCSsemicommon_termStrdict_list[design_i]:
+                        for booli, boolv in enumerate(MCSsemicommon_termStrdict_list[design_i][sstr]):
+                            if boolv:
+                                if not tmpboolwritten[design_i]:
+                                    mux_file.write('    wire [`MUX_%s_I_WIDTH - 1:0] %s_mux%d;\n' % (sstr_nodot, sstr_nodot, booli))
+                                tmpboolwritten[booli] = True
+                                if tmpvalwritten[booli] == -1: tmpvalwritten[booli] = design_i
+                                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" , sstr, tmpboolwritten, tmpvalwritten)
+
+                #for semi_cnt, semi_bool in enumerate(MCSsemicommon_termStrdict[sstr]):
+                #    if semi_bool == True:
+                #        mux_file.write('    wire [`MUX_%s_I_WIDTH - 1:0] %s_mux%d;\n' % (sstr_nodot, sstr_nodot, semi_cnt))
+
             sstr_nodot_mux = sstr_nodot + '_mux'
 
             #create wires
@@ -179,12 +200,27 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit,
             #create the mux
             mux_file.write('    mux_%s mux_%s(.sel(sel), ' % (sstr_nodot, sstr_nodot))
             for i in range(0, design_num):
-                if sbitdiff[i] == 0:
+                if sbitdiff[i] == 0 or tmpboolwritten[i]:
                     wrsignal = '%s_mux' %(sstr_nodot)  #sbitdiff[i] is a negative number
+
+                    #nasty hack again :(
+                    #if sstr in MCSsemicommon_termStrSet and MCSsemicommon_termStrdict[sstr][i]:
+                    if sstr in MCSsemicommon_termStrSet and tmpvalwritten[i] != -1:
+                        wrsignal += str(tmpvalwritten[i])
+
                 elif  (sbitdiff[i] + sigdiffScope_Maxbit[sstr]) == 0:
                     wrsignal = '0'
                 else:
-                    wrsignal = '{%d\'d0, %s_mux[%d:0]}' %(0-sbitdiff[i], sstr_nodot, sigdiffScope_Maxbit[sstr]+sbitdiff[i]-1)
+                    #wrsignal = '{%d\'d0, %s_mux[%d:0]}' %(0-sbitdiff[i], sstr_nodot, sigdiffScope_Maxbit[sstr]+sbitdiff[i]-1)
+
+                    wrsignal = '{%d\'d0, %s' % (0 - sbitdiff[i], sstr_nodot)
+
+                    #nasty hack again :(
+                    #if sstr in MCSsemicommon_termStrdict and MCSsemicommon_termStrdict[sstr][i]:
+                    if sstr in MCSsemicommon_termStrSet and tmpvalwritten[i] != -1:
+                        wrsignal += str(tmpvalwritten[i])
+
+                    wrsignal += '{[%d:0]}' % (sigdiffScope_Maxbit[sstr] + sbitdiff[i] - 1)
 
                 mux_file.write('.d%d(%s), ' %(i, wrsignal))
 
@@ -202,7 +238,8 @@ def createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit,
 
 
 
-def generateMuxDataStruct(prefixName, design_num, designbindlist_list, bindMuxinfodict, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing = None):
+def generateMuxDataStruct(prefixName, design_num, designbindlist_list, bindMuxinfodict, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing = None, \
+                          MCSsemicommon_termStrSet = None, MCSsemicommon_termStrdict_list = None):
     global mux_verilogtemplate
     mux_verilogtemplate = prefixName + "__mux.v"
 
@@ -212,7 +249,8 @@ def generateMuxDataStruct(prefixName, design_num, designbindlist_list, bindMuxin
     global design_bindMuxinfodict
     design_bindMuxinfodict = bindMuxinfodict
 
-    createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing)
+    createMuxVerilogTemplate(design_num, sigdiffStr_Refmax, sigdiffScope_Maxbit, postMCSfixing, \
+                             MCSsemicommon_termStrSet, MCSsemicommon_termStrdict_list)
 
 
 def scopeToStr_MuxDataStruct(muxterm_dict, muxbind_dict, reNewDict=None):

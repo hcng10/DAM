@@ -114,6 +114,7 @@ class DFNode(object):
     def findGraphSize(self, designnum, mcshead_list, current_head, prenode_matcheddesign_i_list, mcsnode_cnt, mcsmatch_cnt):
 
 
+
         update_mcsnode_cnt = mcsnode_cnt
 
         pre_selfnode_matcheddesign_i_list = []
@@ -170,6 +171,7 @@ class DFNode(object):
             self.matcheddesign = selfnode_matcheddesign_i_list
             self.mcs_breakpt = True
 
+
         elif ret_case == MCS_NODE_UNMATCHED:
 
             ret_head = None
@@ -177,6 +179,8 @@ class DFNode(object):
             ret_mcsnode_cnt = 0
             ret_mcsmatch_cnt = 0
             self.mcs_breakpt = True
+            self.matcheddesign = [False for x in range(0, designnum)]
+
 
         else:
 
@@ -241,7 +245,7 @@ class DFNode(object):
         self.MCSbindgen_nodesplit = True
 
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None): pass
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None): pass
 
 
     def MCSBindGenDFNode(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
@@ -259,6 +263,8 @@ class DFNode(object):
             #a else:
             #a print("Terminal got to be redirected.....", end=' ')
             #a self.toPrint()
+
+
 
             MCSassign_copied = copy.deepcopy(MCSassign_analyzer.getBinddict())
 
@@ -297,7 +303,7 @@ class DFNode(object):
                 terminal_node.matchedcnt = self.matchedcnt
                 mcsa_v[0].matchedcnt = self.matchedcnt
                 mcsa_v[0].selfdesignnum = self.selfdesignnum
-                mcsa_v[0].matcheddesign = self.matcheddesign
+                #mcsa_v[0].matcheddesign = self.matcheddesign
 
 
                 MCSbinddict_list[self.selfdesignnum][mcsa_i] = mcsa_v
@@ -323,7 +329,7 @@ class DFNode(object):
             return [MCSsig_cnt, self.mcs_breakpt, None]
 
 
-    def MCSBindGenDFNotTerminal(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, \
+    def MCSBindGenDFNotTerminal(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, \
                                 children_list, childrenstr_list, children_can_diff, M_B_bool=None):
         #if M_B_bool != None:
         if self.MCSbindgen_visited == True:
@@ -425,7 +431,7 @@ class DFNode(object):
             for childi, child in enumerate(children_list):
                 if child is not None:
                     [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
-                        child.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool)
+                        child.MCSBindGen(headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool)
 
 
                     if children_can_diff == True:
@@ -433,7 +439,7 @@ class DFNode(object):
                         if ret_mcs_breakpt == True:
                             for di, dv in enumerate(headnode.matcheddesign):
                                 if dv == True:
-                                    self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer,
+                                    self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer,
                                                                           childrenstr_list[childi])
 
                             #MCSsig_cnt = ret_MCSsig_cnt
@@ -459,6 +465,8 @@ class DFNode(object):
         for s in str_list:
             if '\'b' in s:
                 out_str += str(int(s[s.index('\'b') + 2:], 2))
+            elif '\'d' in s:
+                out_str += str(int(s[s.index('\'d') + 2:]))
             else:
                 out_str += s
         if out_str.isdigit():
@@ -538,6 +546,8 @@ class DFTerminal(DFNode):
         self.MCSbindgen_visited = False
         
         term = designtermdict_list[self.selfdesignnum][self.name]
+
+
         self.term_width = self.codeToValue(term.msb.tocode()) - self.codeToValue(term.lsb.tocode()) + 1
 
         return self.term_width
@@ -587,7 +597,7 @@ class DFTerminal(DFNode):
         else:
             return False
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
 
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, \
                                                                                designtermdict_list, MCSassign_analyzer, M_B_bool)
@@ -780,7 +790,7 @@ class DFConstant(DFNode):
         else:
             return False
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, \
                                                                                 designtermdict_list, MCSassign_analyzer, M_B_bool)
 
@@ -880,7 +890,7 @@ class DFIntConst(DFConstant):
         else:
             return False
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, \
                                                                                designtermdict_list, MCSassign_analyzer, M_B_bool)
 
@@ -963,7 +973,7 @@ class DFFloatConst(DFConstant):
         else:
             return False
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list,\
                                                                                designtermdict_list, MCSassign_analyzer, M_B_bool)
 
@@ -1028,7 +1038,7 @@ class DFStringConst(DFConstant):
         else:
             return False
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool)
 
 
@@ -1185,13 +1195,13 @@ class DFOperator(DFNotTerminal):
 
 
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
 
         children_list = list(self.nextnodes)
         childrenstr_list = list(range(len(self.nextnodes)))
 
         [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal\
-            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
+            (headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
 
         if ret_children_list != None:
             self.nextnodes = tuple(ret_children_list)
@@ -1199,7 +1209,7 @@ class DFOperator(DFNotTerminal):
         return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
 
 
-    def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_num):
+    def MCSBindGen_B(self, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_num):
 
         #a print("B redirected.....", end=' ')
         #a self.toPrint()
@@ -1207,7 +1217,7 @@ class DFOperator(DFNotTerminal):
         nextnodes_list = list(self.nextnodes)
 
         [MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
-            nextnodes_list[nextnode_num].MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
+            nextnodes_list[nextnode_num].MCSBindGen(None, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
 
         nextnodes_list[nextnode_num] = ret_terminal_node
 
@@ -1386,8 +1396,8 @@ class DFPartselect(DFNotTerminal):
                 return True
 
         elif type(selfChild) == type(DFChild):
-            if selfChild.value == DFChild.value:
-                return True
+            #if selfChild.value == DFChild.value:
+            return True
 
         return False
 
@@ -1453,13 +1463,13 @@ class DFPartselect(DFNotTerminal):
             return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
 
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
 
         children_list = [self.var, self.msb, self.lsb]
         childrenstr_list = []
 
         [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal \
-            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, False, M_B_bool)
+            (headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, False, M_B_bool)
 
 
         return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
@@ -1528,7 +1538,10 @@ class DFPartselect(DFNotTerminal):
         #     final_lsb = int(self_lsb)
         # else:
         #     final_lsb = eval(self_lsb)
-        final_msb = self.codeToValue(self.msb.tocode())
+        if not isinstance(self.msb, DFIntConst):
+            final_msb = self.msb.term_width
+        else:
+            final_msb = self.codeToValue(self.msb.tocode())
         final_lsb = self.codeToValue(self.lsb.tocode())
 
 
@@ -1692,13 +1705,13 @@ class DFPointer(DFNotTerminal):
         else:  # the match list need to be updated by children
             return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
 
         children_list = [self.var, self.ptr]
         childrenstr_list = ['var', 'ptr']
 
         [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal\
-            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
+            (headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
 
         if ret_children_list != None:
             self.var = ret_children_list[0]
@@ -1707,20 +1720,20 @@ class DFPointer(DFNotTerminal):
         return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
 
 
-    def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_str):
+    def MCSBindGen_B(self, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_str):
 
         #a print("B redirected.....", end=' ')
         #a self.toPrint()
 
         if nextnode_str == 'var':
             [MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
-                self.var.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
+                self.var.MCSBindGen(None, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
 
             self.var = ret_terminal_node
 
         elif nextnode_str == 'ptr':
             [MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
-                self.ptr.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
+                self.ptr.MCSBindGen(None, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
 
             self.ptr = ret_terminal_node
 
@@ -1874,13 +1887,13 @@ class DFConcat(DFNotTerminal):
             return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
 
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
 
         children_list = list(self.nextnodes)
         childrenstr_list = []
 
         [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal \
-            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, False, M_B_bool)
+            (headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, False, M_B_bool)
 
 
         return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
@@ -2107,13 +2120,13 @@ class DFBranch(DFNotTerminal):
 
 
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
 
         children_list = [self.condnode, self.truenode, self.falsenode]
         childrenstr_list = ['condnode', 'truenode', 'falsenode']
 
         [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal\
-            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
+            (headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, True, M_B_bool)
 
         if ret_children_list != None:
             ret_i = 0
@@ -2133,7 +2146,7 @@ class DFBranch(DFNotTerminal):
         return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
 
 
-    def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_str):
+    def MCSBindGen_B(self, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_str):
 
         #print("B redirected.....", end=' ')
         #self.toPrint()
@@ -2144,7 +2157,7 @@ class DFBranch(DFNotTerminal):
             #a self.toPrint()
 
             [MCSsig_cnt, ret_mcs_breakpt_condnode, ret_terminal_node] = \
-                self.condnode.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
+                self.condnode.MCSBindGen(None, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
 
             self.condnode = ret_terminal_node
             if ret_mcs_breakpt_condnode == False: err = True
@@ -2155,7 +2168,7 @@ class DFBranch(DFNotTerminal):
             #a self.toPrint()
 
             [MCSsig_cnt, ret_mcs_breakpt_truenode, ret_terminal_node] = \
-                self.truenode.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
+                self.truenode.MCSBindGen(None, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
 
             self.truenode = ret_terminal_node
             if ret_mcs_breakpt_truenode == False: err = True
@@ -2165,7 +2178,7 @@ class DFBranch(DFNotTerminal):
             #a self.toPrint()
 
             [MCSsig_cnt, ret_mcs_breakpt_falsenode, ret_terminal_node] = \
-                self.falsenode.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
+                self.falsenode.MCSBindGen(None, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
 
             self.falsenode = ret_terminal_node
             if ret_mcs_breakpt_falsenode == False: err = True
@@ -2328,7 +2341,7 @@ class DFEvalValue(DFNode):
         else:
             return False
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, \
                                                                                    designtermdict_list, MCSassign_analyzer, M_B_bool)
 
@@ -2394,7 +2407,7 @@ class DFUndefined(DFNode):
         else:
             return False
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, \
                                                                                    designtermdict_list, MCSassign_analyzer, M_B_bool)
 
@@ -2460,7 +2473,7 @@ class DFHighImpedance(DFNode):
         else:
             return False
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
         return self.MCSBindGenDFNode( headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, \
                                                                                     designtermdict_list, MCSassign_analyzer, M_B_bool)
 
@@ -2564,12 +2577,12 @@ class DFDelay(DFNotTerminal):
         else:  # the match list need to be updated by children
             return [self_case, current_head, arg_matcheddesign_i_list, arg_node_cnt, arg_match_cnt]
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
         children_list = [self.nextnode]
         childrenstr_list = []
 
         [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node, ret_children_list] = self.MCSBindGenDFNotTerminal \
-            (headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, False, M_B_bool)
+            (headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, children_list, childrenstr_list, False, M_B_bool)
 
         return [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node]
 
@@ -3042,7 +3055,7 @@ class Bind(object):
 
             if self.bvhasmulti == False and designmatched_i in self.designAtoB_dict and designmatched_i != self.selfdesignnum:
                 self_matcheddesign_i_list.append(True)
-                mcsmatch_cnt = mcsmatch_cnt + 1
+                #mcsmatch_cnt = mcsmatch_cnt + 1
             else:
                 self_matcheddesign_i_list.append(False)
 
@@ -3064,7 +3077,8 @@ class Bind(object):
 
         return mcshead_list
 
-    def MCSBindGen(self, headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
+
+    def MCSBindGen(self, headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool=None):
 
         ### First Node should be with mcs <- actually that may not be true
 
@@ -3074,9 +3088,24 @@ class Bind(object):
             # bcos it is replicated, so return false even if it is a breakpt
             return [MCSsig_cnt, False, None]
 
+
+        if self.dest in MCScommonbinddict:
+            # it has been marked as common before, so it means there are multiple common node of that
+            # mark it as semi-common
+            MCSsemicommonbinddict_list[self.selfdesignnum][self.dest] = designbinddict_list[self.selfdesignnum][self.dest]
+
+            MCSsemicommonbool_list[self.selfdesignnum][str(self.dest)] = [False for x in range(len(designbinddict_list))]
+            MCSsemicommonbool_list[self.selfdesignnum][str(self.dest)][self.selfdesignnum] = True
+
+
         # put self into global common bindlist, and remove that from each of the node
-        MCScommonbinddict[self.dest] = designbinddict_list[self.selfdesignnum][self.dest]
+        else:
+            MCScommonbinddict[self.dest] = designbinddict_list[self.selfdesignnum][self.dest]
+
         del designbinddict_list[self.selfdesignnum][self.dest]
+
+        if str(self.dest) == "filter1.c18":
+            print("What the fuck.....................pre", self.selfdesignnum, self.matchsize, self.matcheddesign )
 
 
         self.MCSbindgen_visited = True
@@ -3085,33 +3114,39 @@ class Bind(object):
                 nodeB = self.designAtoB_dict[di]
                 nodeB.MCSbindgen_visited = True
 
+                if str(nodeB.dest) == "filter1.c18":
+                    print("What the fuck.....................", di, self.matchsize)
+
                 del designbinddict_list[di][nodeB.dest]
+
+                if str(self.dest) in MCSsemicommonbool_list[self.selfdesignnum]:
+                    MCSsemicommonbool_list[self.selfdesignnum][str(self.dest)][di] = True
 
 
 
         if self.ptr is not None:
             [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
-                self.ptr.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool)
+                self.ptr.MCSBindGen(headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool)
 
             if ret_mcs_breakpt == True:
                 self.ptr = ret_terminal_node
 
                 for di, dv in enumerate(headnode.matcheddesign):
                     if dv == True:
-                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, designbinddict_list, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, 'ptr')
+                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, 'ptr')
             MCSsig_cnt = ret_MCSsig_cnt
 
 
         if self.tree is not None:
             [ret_MCSsig_cnt, ret_mcs_breakpt, ret_terminal_node] = \
-                self.tree.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool)
+                self.tree.MCSBindGen(headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, M_B_bool)
 
             if ret_mcs_breakpt == True:
                 self.tree = ret_terminal_node
 
                 for di, dv in enumerate(headnode.matcheddesign):
                     if dv == True:
-                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, 'tree')
+                        self.designAtoB_dict[di].MCSBindGen_B(MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, 'tree')
             MCSsig_cnt = ret_MCSsig_cnt
 
 
@@ -3119,7 +3154,7 @@ class Bind(object):
         return [MCSsig_cnt, True, None]
 
 
-    def MCSBindGen_B(self, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_str):
+    def MCSBindGen_B(self, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, nextnode_str):
 
         #a print("B redirected.....", end=' ')
         #a self.toPrint()
@@ -3127,7 +3162,7 @@ class Bind(object):
         err = False
         if nextnode_str == 'ptr':
             [MCSsig_cnt, ret_mcs_breakpt_ptr, ret_terminal_node] = \
-                self.ptr.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
+                self.ptr.MCSBindGen(None, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
 
             self.ptr = ret_terminal_node
 
@@ -3136,7 +3171,7 @@ class Bind(object):
 
         elif nextnode_str == 'tree':
             [MCSsig_cnt, ret_mcs_breakpt_tree, ret_terminal_node] = \
-                self.tree.MCSBindGen(None, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
+                self.tree.MCSBindGen(None, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSbinddict_list, designtermdict_list, MCSassign_analyzer, True)
 
             self.tree = ret_terminal_node
 
@@ -3211,6 +3246,8 @@ class Bind(object):
         for s in str_list:
             if '\'b' in s:
                 out_str += str(int(s[s.index('\'b') + 2:], 2))
+            elif '\'d' in s:
+                out_str += str(int(s[s.index('\'d') + 2:]))
             else:
                 out_str += s
         if out_str.isdigit():

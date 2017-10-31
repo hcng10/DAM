@@ -39,6 +39,9 @@ PartSelectFileTop = "partselect"
 
 MuxFile = "mux.v"
 
+etime = -1
+startime = -1
+
 
 def generateDataFlow(filelist, topmodule, noreorder, nobind, preprocess_include, preprocess_define):
 
@@ -221,17 +224,26 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
     MCScommonbinddict = {}
     MCSnewtermdict_list = []
 
+    MCSsemicommonbinddict_list = []
+    MCSsemicommonbool_list = []
+
     for di in range(0, designnum):
         MCSuncommonbinddict_list.append({})
         MCSnewtermdict_list.append({})
+
+        MCSsemicommonbinddict_list.append({})
+        MCSsemicommonbool_list.append({})
 
     for hi, headnode in enumerate(mcshead_list):
         #a print('\n')
         #a print(headnode.selfdesignnum, end=' ')
         #a headnode.toPrint()
 
+        if str(headnode.dest) == "filter1.c18":
+            print("What the fuck.....................prepre", str(headnode.selfdesignnum), headnode.matchsize, headnode.tostr())
+
         [MCSsig_cnt,ret_mcs_breakpt, ret_terminal_node] = \
-            headnode.MCSBindGen(headnode, MCSsig_cnt, designbinddict_list, MCScommonbinddict, MCSuncommonbinddict_list, MCSnewtermdict_list, MCSassign_analyzer)
+            headnode.MCSBindGen(headnode, MCSsig_cnt, MCSsemicommonbinddict_list, MCSsemicommonbool_list, designbinddict_list, MCScommonbinddict, MCSuncommonbinddict_list, MCSnewtermdict_list, MCSassign_analyzer)
     """a
     for di in range(0, designnum):
         print('\n')
@@ -269,7 +281,7 @@ def mcsChgBindDest(designnum, designbinddict_list, designbindlist_list, mcshead_
     """
 
 
-    return [designbinddict_list, MCSuncommonbinddict_list, MCScommonbinddict, MCSnewtermdict_list]
+    return [designbinddict_list, MCSuncommonbinddict_list, MCScommonbinddict, MCSnewtermdict_list, MCSsemicommonbinddict_list, MCSsemicommonbool_list]
 
 
 """
@@ -296,6 +308,8 @@ def handleFindGraphSize(headnodelist, designnum):
 
 
 def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer):
+
+
     designMCSOutput_list = [] # this is used to identify the output ports between designs
 
     designM_AB_initial_list = []
@@ -305,6 +319,8 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
 
     """ Line 1-2: Initialize M_A, M_B
     """
+    global starttime
+    starttime = time.time()
     # 0-2i: navigate the entire graphs across designs to find the common nodes
     for designB_i in range(0, designnum):
         # 0-2i: You have to identify the starting common node, and we use the output
@@ -379,7 +395,9 @@ def calMCSAll(designtermo_set_list, designbinddict_list, designbindlist_list, de
 
             findMCSwTwo(M_AB, F_A, designB_i)
 
-
+    global etime
+    etime = time.time()
+    etime = etime - starttime
 
     """ Here is the heuristic, merge the graph where it forms the biggest mcs / biggest matched, so as to minimize the
         total resource consumption
@@ -441,6 +459,8 @@ def codeToValue(instr):
     for s in str_list:
         if '\'b' in s:
             out_str += str(int(s[s.index('\'b') + 2:], 2))
+        elif '\'d' in s:
+            out_str += str(int(s[s.index('\'d') + 2:]))
         else:
             out_str += s
     return eval(out_str)
@@ -560,29 +580,48 @@ def createSignalList(designterm_list, idx, sigdiffScope_Ref0, sigStr_Type, desig
     #
     # print(' ')
 
-
+"""
+This is to override the bitwidth calcuated from the combined_term
+"""
 def modifySignalList(designnum, sigdiffScope_Ref0, \
-                     MCSsemicommonwidth_termStrdict, MCSsemicommon_termStrdict):
+                     MCSsemicommonwidth_termStrdict_list, MCSsemicommon_termStrdict_list, MCSsemicommon_termStrSet):
 
     for tk, ref0_list in sigdiffScope_Ref0.items():
 
         # check if there is any chance that the common term can be semi-common
-        if str(tk) in MCSsemicommon_termStrdict:
+        if str(tk) in MCSsemicommon_termStrSet:
             # if so u need to change the entire structure
             for r_i in range(0, designnum):
                 if r_i >=  len(ref0_list): ref0_list.append(0)
 
-                if MCSsemicommon_termStrdict[str(tk)][r_i] == True:
-                    valold = ref0_list[r_i]
-                    # zero case can be troublesome coz u need to update others
-                    if r_i == 0:
-                        ref0_list[r_i] = MCSsemicommonwidth_termStrdict[str(tk)][r_i]
+                print("..................................... what have i done", str(tk))
 
-                        for r_inew in range(r_i + 1, len(ref0_list)):
-                            ref0_list[r_inew] = (valold + ref0_list[r_inew]) - ref0_list[r_i]
+                if str(tk) in MCSsemicommon_termStrdict_list[r_i]:
+                    for booli, boolv in enumerate(MCSsemicommon_termStrdict_list[r_i][str(tk)]):
+                        if boolv:
+                            valold = ref0_list[r_i]
+                            if r_i == 0:
+                                ref0_list[r_i] = MCSsemicommonwidth_termStrdict_list[r_i][str(tk)][booli]
 
-                    else:
-                        ref0_list[r_i] = MCSsemicommonwidth_termStrdict[str(tk)][r_i] - ref0_list[0]
+                                for r_inew in range(r_i + 1, len(ref0_list)):
+                                    ref0_list[r_inew] = (valold + ref0_list[r_inew]) - ref0_list[r_i]
+
+                            else:
+                                ref0_list[r_i] = MCSsemicommonwidth_termStrdict_list[r_i][str(tk)][booli] - ref0_list[0]
+
+                # if MCSsemicommon_termStrdict_list[][str(tk)][r_i] == True:
+                #     valold = ref0_list[r_i]
+                #     # zero case can be troublesome coz u need to update others
+                #     if r_i == 0:
+                #         ref0_list[r_i] = MCSsemicommonwidth_termStrdict[str(tk)][r_i]
+                #
+                #         for r_inew in range(r_i + 1, len(ref0_list)):
+                #             ref0_list[r_inew] = (valold + ref0_list[r_inew]) - ref0_list[r_i]
+                #
+                #     else:
+                #         ref0_list[r_i] = MCSsemicommonwidth_termStrdict[str(tk)][r_i] - ref0_list[0]
+
+
 
 """
     Base on sigdiffScope_Ref0, we want to find out the different between the max-bitwidth and the other bitwidth across
@@ -598,6 +637,7 @@ def modifySignalList(designnum, sigdiffScope_Ref0, \
 
 
 def findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbit, sigdiffStr_Maxbit_Design, designnum, \
+                            MCSsemicommon_termStrSet = None, \
                           MCSuncommon_termstrlist_hack = None, postMCSmuxIdfy = None, postMCSfixing = None):
 
     for tk, tv in sigdiffScope_Ref0.items():
@@ -647,7 +687,10 @@ def findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbi
 
             sigdiffStr_Refmax[tk_str].append(bitdiffval)
 
-            if bitdiffval == 0: sigdiffStr_Maxbit_Design[tk_str] = i
+            #if bitdiffval == 0: sigdiffStr_Maxbit_Design[tk_str] = i
+            if bitdiffval == 0:
+                if not(i > 0 and sigdiffStr_Refmax[tk_str][i-1] == 0):#should fix maxbit using list
+                    sigdiffStr_Maxbit_Design[tk_str] = i
 
             if not (bitdiffval == 0 or bitdiffval + maxbit == 0):
                 diff_cnt = diff_cnt + 1
@@ -655,7 +698,7 @@ def findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbi
         sigdiffStr_Maxbit[tk_str] = maxbit
 
         # it means basically there are no multi-bit (hack again :()
-        if postMCSfixing == None and diff_cnt == 0:
+        if postMCSfixing == None and diff_cnt == 0 and tk_str not in MCSsemicommon_termStrSet:
             del sigdiffStr_Refmax[tk_str]
 
 
@@ -671,7 +714,7 @@ def findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbi
 
 
 def chgBindDestAfterMuxGen_MCS(options, design, bindlist, bindMuxinfodict_list, sigdiffStr_Refmax, sigdiffStr_Maxbit,\
-                           concatanalyzer, partselectanalyzer, MCSsemicommon_termStrdict=None, postMCSfixing = None):
+                           concatanalyzer, partselectanalyzer, MCSsemicommon_termStrdict_list=None, postMCSfixing = None):
     for i in range(len(bindlist) - 1, -1, -1):
         bi = bindlist[i][0]
         bv = bindlist[i][1]#TODO fix if there are multiple bv
@@ -717,7 +760,7 @@ def chgBindDestAfterMuxGen_MCS(options, design, bindlist, bindMuxinfodict_list, 
                     del bindlist[i]
 
         elif postMCSfixing != None and postMCSfixing == True \
-                and bi_str in MCSsemicommon_termStrdict and MCSsemicommon_termStrdict[bi_str][design]:
+                and bi_str in MCSsemicommon_termStrdict_list[design] and MCSsemicommon_termStrdict_list[design][bi_str][design]:
             muxingscope = bi.scopechain[-1]
             muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
 
@@ -816,7 +859,7 @@ def chgBindDestAfterMuxGen(options, designnum, bindlist, bindMuxinfodict, sigdif
 
 def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict, sigdiffStr_Refmax, sigdiffStr_Maxbit_Design,
                                                                     muxterm_dict, muxtermStr_ind_dict, options, \
-                                                            MCSsemicommon_termStrdict = None, postMCSfixing = None):
+                                                            MCSsemicommon_termStrdict_list = None, postMCSfixing = None):
     # in TERMs, the format is [scope: signals]
     for ti, tv in termdict.items():
         ti_str = str(ti)
@@ -833,6 +876,7 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict, sigdiffStr_Refmax, si
                     muxingscope = ti.scopechain[-1]
                     muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
 
+                    print("BBBBBCCCCCCCCCCCCCCCCC", ti_str)
                     deleteMuxTerm(ti, muxtermStr_ind_dict, muxterm_dict)
 
                 # (6-aI) case 2: tree common, but with multi-bit and no compare
@@ -844,9 +888,11 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict, sigdiffStr_Refmax, si
                         muxingscope.scopename = muxingscope.scopename + "_mux"
                         # (6-aIII) compare with the signal in muxterms_dict, remove when needed
                         deleteMuxTerm(ti, muxtermStr_ind_dict, muxterm_dict)
+                        print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBXXXXXXXXX", ti, tv.termtype, sigdiffStr_Refmax[ti_str], sigdiffStr_Maxbit_Design[ti_str], design, bindMuxinfodict[ti_str] )
 
                     else:
                         # other designs, delete that signal
+                        print("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", ti_str, sigdiffStr_Refmax[ti_str], sigdiffStr_Maxbit_Design[ti_str], design, bindMuxinfodict[ti_str])
                         del termdict[ti]
 
                 # If 'mux' is put as postfix, then it will be an input to mux
@@ -859,7 +905,7 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict, sigdiffStr_Refmax, si
                         tv.termtype.add('Wire')
 
         elif postMCSfixing != None and postMCSfixing == True \
-                and ti_str in MCSsemicommon_termStrdict and MCSsemicommon_termStrdict[ti_str][design]:
+                and ti_str in MCSsemicommon_termStrdict_list[design] and MCSsemicommon_termStrdict_list[design][ti_str][design]:
             muxingscope = ti.scopechain[-1]
             muxingscope.scopename = muxingscope.scopename + "_mux" + str(design)
 
@@ -878,10 +924,12 @@ def chgTermsAfterMuxGen(design, termdict, bindMuxinfodict, sigdiffStr_Refmax, si
             """
 
         elif ti.scopechain[-1].scopename == options.clockname:
-            if not design == 0: del termdict[ti]
+            if not design == 0 and len(ti.scopechain) <=2:
+                del termdict[ti]
 
         elif ti.scopechain[-1].scopename == options.resetname:
-            if not design == 0: del termdict[ti]
+            if not design == 0 and len(ti.scopechain) <=2:
+                del termdict[ti]
         #should be the same name if your are input, coz the graph is already common
         #else:
             #nonmuxingscope = ti.scopechain[-1]
@@ -1047,21 +1095,41 @@ def main():
                                             preprocess_include=[],
                                             preprocess_define=[])
 
-
+    num_ofdesign = len(designbindlist_list)
     for design, bindlist in enumerate(designbindlist_list): #traverse bindtree + 2
         print('\n')
         for bi, bv in bindlist:
             for bve in bv:
                 print(bi, bve.tostr())
 
+    global etime
+    global startime
 
-
-    starttime = time.time()
+    starttime = 0
+    etime = 0
 
     #TODO: uncomment this for finding mcs
-    [mdydesignbinddict_list, MCSuncommon_binddict_list, MCScommon_binddict, MCSnewtermdict_list] = \
+    [mdydesignbinddict_list, MCSuncommon_binddict_list, MCScommon_binddict, MCSnewtermdict_list, MCSsemicommonbinddict_list, MCSsemicommonbool_list] = \
         calMCSAll(None, designbinddict_list, designbindlist_list, designbiStr_dict_list, designbvStr_dict_list, MCSassign_analyzer)
     #designtermo_set_list
+
+
+
+
+    print("/n$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ print every binding details: MCSsemicommonbinddict_list")
+
+    for design_i, binddict in enumerate(MCSsemicommonbinddict_list):
+
+        print(design_i)
+        for bi, bv in binddict.items():
+            print(bi, bv[0].tostr())
+
+
+    print("/n$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ print every binding details: MCScommon_binddict")
+
+
+    for bi, bv in MCScommon_binddict.items():
+        print(bi, bv[0].tostr())
 
 
     """1-B-I: fix the terms by grabbing the MCSuncommon bindest from the termdict,
@@ -1100,6 +1168,19 @@ def main():
             #a if tv!=None: print("moved terms...........", design_i, tv)
 
 
+    for design_i, binddict in enumerate(MCSsemicommonbinddict_list):
+        for bi, bv in binddict.items():
+
+            tv = MCSnewtermdict_list[design_i].pop(bi, None)
+            if tv != None:
+                MCSuncommon_termdict_list[design_i][tv.name] = tv
+            else:
+                tv = designtermdict_list[design_i].pop(bi, None)
+
+                if tv != None:
+                    MCSuncommon_termdict_list[design_i][tv.name] = tv
+
+
 
 
 
@@ -1117,20 +1198,16 @@ def main():
     #a print('\n')
     #a print('................',MCSuncommon_termdict_list)
 
+    print("/n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ print every term details: designtermdict_list")
+
+
+    for design_i, termdict in enumerate(designtermdict_list):
+        print(design_i)
+        for ti, tv in termdict.items():
+            print(ti)
 
 
 
-    # fix uncommon binddict
-    for design_i, binddict in enumerate(MCSuncommon_binddict_list):
-        binddict.update(mdydesignbinddict_list[design_i])
-
-
-    MCSuncommon_bindlist_list = []
-    for design_i, binddict in enumerate(MCSuncommon_binddict_list):
-        #bindlist = sorted(binddict.items(), key=lambda x: str(x[0]))
-        bindlist = binddict.items()
-        #a print("................", bindlist)
-        MCSuncommon_bindlist_list.append(bindlist)
 
 
 
@@ -1150,8 +1227,13 @@ def main():
 
 
     """1-D: mark the semi-common term"""
-    MCSsemicommon_termStrdict = {}
-    MCSsemicommonwidth_termStrdict = {}
+    #MCSsemicommon_termStrdict = {}
+    #MCSsemicommonwidth_termStrdict = {}
+
+    MCSsemicommon_termStrdict_list = [{} for x in range(num_ofdesign)]
+    MCSsemicommonwidth_termStrdict_list = [{} for x in range(num_ofdesign)]
+
+    MCSsemicommon_termStrSet = set()
 
     for design_i, termdict in enumerate(MCSuncommon_termdict_list):
         for ti, tv in termdict.items():
@@ -1159,16 +1241,58 @@ def main():
             if ti in MCScommon_binddict:
                 #MCSsemicommon_termdict[ti] = tv
 
-                if str(ti) not in MCSsemicommon_termStrdict:
-                    MCSsemicommon_termStrdict[str(ti)] = []
-                    MCSsemicommonwidth_termStrdict[str(ti)] = []
+                if str(ti) not in MCSsemicommon_termStrdict_list[design_i]:
+                    MCSsemicommon_termStrdict_list[design_i][str(ti)] = [False for x in range(num_ofdesign)]
+                    MCSsemicommonwidth_termStrdict_list[design_i][str(ti)] = [0 for x in range(num_ofdesign)]
 
-                for idx in range(len(MCSsemicommon_termStrdict[str(ti)]), design_i):
-                    MCSsemicommon_termStrdict[str(ti)].append(False)
-                    MCSsemicommonwidth_termStrdict[str(ti)].append(0)
+                    MCSsemicommon_termStrSet.add(str(ti))
 
-                MCSsemicommon_termStrdict[str(ti)].append(True)
-                MCSsemicommonwidth_termStrdict[str(ti)].append(tv.bitwidth)
+                #for idx in range(len(MCSsemicommon_termStrdict[str(ti)]), design_i):
+                    #MCSsemicommon_termStrdict[str(ti)].append(False)
+                    #MCSsemicommonwidth_termStrdict[str(ti)].append(0)
+
+                #TODO: the multo-bit thing is wrong?....fix it later
+                MCSsemicommon_termStrdict_list[design_i][str(ti)][design_i] = True
+                MCSsemicommonwidth_termStrdict_list[design_i][str(ti)][design_i] = tv.bitwidth
+
+                #trace it back in sem-bind to see if there are match for signal
+                if ti in MCSsemicommonbinddict_list[design_i]:
+                    for booli, boolv in enumerate(MCSsemicommonbool_list[design_i][str(ti)]):
+                        if boolv and booli != design_i:
+                            MCSsemicommon_termStrdict_list[design_i][str(ti)][booli] = True
+                            MCSsemicommonwidth_termStrdict_list[design_i][str(ti)][booli] = designtermdict_list[booli][ti].bitwidth
+
+
+
+    #for ti, tboollist in MCSsemicommon_termStrdict.items():
+    #    if len(tboollist) < len(designanalyzer_list):
+
+    #        for idx in range(len(tboollist), len(designanalyzer_list)):
+    #            MCSsemicommon_termStrdict[str(ti)].append(False)
+    #            MCSsemicommonwidth_termStrdict[str(ti)].append(0)
+
+
+    #nasty hack for having two MCS assigned to same signal
+
+    print('..........//......', MCSsemicommon_termStrdict_list)
+
+
+
+    # fix uncommon binddict
+    for design_i, binddict in enumerate(MCSuncommon_binddict_list):
+        binddict.update(mdydesignbinddict_list[design_i])
+
+    for design_i, binddict in enumerate(MCSuncommon_binddict_list):
+        binddict.update(MCSsemicommonbinddict_list[design_i])
+
+
+    MCSuncommon_bindlist_list = []
+    for design_i, binddict in enumerate(MCSuncommon_binddict_list):
+        #bindlist = sorted(binddict.items(), key=lambda x: str(x[0]))
+        bindlist = binddict.items()
+        #a print("................", bindlist)
+        MCSuncommon_bindlist_list.append(bindlist)
+
 
 
 
@@ -1182,6 +1306,7 @@ def main():
 
     findsigdiffStr_Refmax(MCSuncommon_sigdiffScope_Ref0, MCSuncommon_sigdiffStr_Refmax, MCSuncommon_sigdiffStr_Maxbit, \
                                             MCSuncommon_sigdiffStr_Maxbit_Design, len(dirlist), \
+                                            None, \
                                             MCSuncommon_termstrlist_hack, postMCSmuxIdfy, True)
     #a print(MCSuncommon_sigdiffScope_Ref0)
     #a print(MCSuncommon_sigdiffStr_Refmax)
@@ -1211,8 +1336,8 @@ def main():
     """1-E: fix the MCSuncommon_binddict_list by changing the proper name to connect to mux"""
     for design_i, bindlist in enumerate(MCSuncommon_bindlist_list):
         chgBindDestAfterMuxGen_MCS(options, design_i, bindlist, postMCSmuxIdfy, MCSuncommon_sigdiffStr_Refmax,\
-                               MCSuncommon_sigdiffStr_Maxbit, concatanalyzer, partselectanalyzer, MCSsemicommon_termStrdict, True)
-
+                               MCSuncommon_sigdiffStr_Maxbit, concatanalyzer, partselectanalyzer, MCSsemicommon_termStrdict_list, True)
+    print('........@@@@@BBBBBB.....', postMCSmuxIdfy)
     """a
     for design_i, bindlist in enumerate(MCSuncommon_bindlist_list) :
         for bi, bv in bindlist:
@@ -1225,13 +1350,20 @@ def main():
             print(bi, bve.tostr())
     """
 
+    print("/n$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ print every binding details: MCSuncommon_bindlist_list")
+
+    for design_i, bindlist in enumerate(MCSuncommon_bindlist_list):
+
+        print(design_i)
+        for bi, bv in bindlist:
+            print(bi, bv[0].tostr())
+
 
 
     """1-F: fix the MCSuncommon_binddict_list by changing the proper name to connect to mux"""
     for design_i, termdict in enumerate(MCSuncommon_termdict_list):
         chgTermsAfterMuxGen(design_i, termdict, postMCSmuxIdfy, MCSuncommon_sigdiffStr_Refmax, MCSuncommon_sigdiffStr_Maxbit_Design, \
-                            MCSuncommon_muxterm_dict, MCSuncommon_muxtermStr_ind_dict, options, MCSsemicommon_termStrdict, True)
-
+                            MCSuncommon_muxterm_dict, MCSuncommon_muxtermStr_ind_dict, options, MCSsemicommon_termStrdict_list, True)
 
 
     """
@@ -1247,18 +1379,19 @@ def main():
     sigStr_Type = {}
     designtermo_set_list = []
 
-
+    starttime = time.time()
     for idx in range(0, len(dirlist)):
         createSignalList(designtermdict_list, idx, sigdiffScope_Ref0, sigStr_Type, designtermo_set_list)
 
-    modifySignalList(len(dirlist), sigdiffScope_Ref0,MCSsemicommonwidth_termStrdict, MCSsemicommon_termStrdict)
+    modifySignalList(len(dirlist), sigdiffScope_Ref0, MCSsemicommonwidth_termStrdict_list, MCSsemicommon_termStrdict_list, MCSsemicommon_termStrSet)
 
 
 
     sigdiffStr_Refmax = {}
     sigdiffStr_Maxbit = {}
     sigdiffStr_Maxbit_Design = {}
-    findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbit,sigdiffStr_Maxbit_Design, len(dirlist))
+    findsigdiffStr_Refmax(sigdiffScope_Ref0, sigdiffStr_Refmax, sigdiffStr_Maxbit,sigdiffStr_Maxbit_Design, len(dirlist), MCSsemicommon_termStrSet)
+    print('........@@@@@.....', sigdiffStr_Refmax)
 
     #TODO: can be removed***
     #a print(sigdiffStr_Refmax)
@@ -1351,7 +1484,7 @@ def main():
     #a  print(sigdiffStr_Refmax)
     #a print(sigdiffStr_Maxbit)
     generateMuxDataStruct(options.topmodule, len(dirlist), designbindlist_list, bindMuxinfodict, sigdiffStr_Refmax,
-                          sigdiffStr_Maxbit)
+                          sigdiffStr_Maxbit, None, MCSsemicommon_termStrSet, MCSsemicommon_termStrdict_list) #hack for semicommon signal
 
 
     [muxterm_dict, muxtermStr_ind_dict, muxtermStr_val_dict, muxbind_dict, muxbindStr_head_dict, muxbindStr_tree_dict] = \
@@ -1386,7 +1519,8 @@ def main():
     """
 
 
-
+    endtime = time.time()
+    etime = etime + (endtime-starttime)
 
 
     """
@@ -1398,9 +1532,13 @@ def main():
     #a print("\n*************** 6th Step ***************")
     for design, termdict in enumerate(designtermdict_list):
         chgTermsAfterMuxGen(design, termdict, bindMuxinfodict, sigdiffStr_Refmax, sigdiffStr_Maxbit_Design, \
-                                                                muxterm_dict, muxtermStr_ind_dict, options, False)
+                                                                muxterm_dict, muxtermStr_ind_dict, options, MCSsemicommon_termStrdict_list, False)
 
-    endtime = time.time()
+
+    for ti, tv in muxterm_dict.items():
+        print("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", design_i, ti, tv.termtype)
+
+
 
     """
     7th : Combine all the term and bindtree into one data structure for code generation
@@ -1472,13 +1610,13 @@ def main():
 
     #final fixing for partsel
     partsel_cnt_packaslist = [0]
-
+    """
     for bi, bv in newbinddict.items():
         for bve in bv:
             #print(bi, bve.tostr())
             bve.fixpartsel(bi.scopechain, newtermdict, newbinddict, MCSassign_analyzer, partsel_cnt_packaslist)
 
-
+    """
 
     # final print
     for bi, bv in newbinddict.items():
@@ -1491,7 +1629,7 @@ def main():
         print(ti, tv)
 
     elapsed = endtime - starttime
-    print('..........................elapsed', elapsed)
+    print('..........................elapsed', etime)
 
 
 
