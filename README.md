@@ -1,4 +1,36 @@
-Pyverilog
+Design Analyzer and Merger (DAM) based on Pyverilog
+==============================
+
+Include/Modify three Python files to support DAM, which includes
+
+- vmerge.py
+- generateMuxTemplate.py
+- dataflow.py
+
+DAM is published in FPGA2018
+
+```
+@inproceedings{10.1145/3174243.3174247,
+author = {Ng, Ho-Cheung and Liu, Shuanglong and Luk, Wayne},
+title = {ADAM: Automated Design Analysis and Merging for Speeding up FPGA Development},
+year = {2018},
+isbn = {9781450356145},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3174243.3174247},
+doi = {10.1145/3174243.3174247},
+booktitle = {Proceedings of the 2018 ACM/SIGDA International Symposium on Field-Programmable Gate Arrays},
+pages = {189–198},
+numpages = {10},
+keywords = {design productivity, design merging, maximum common subgraph, fpga},
+location = {Monterey, CALIFORNIA, USA},
+series = {FPGA '18}
+}
+```
+
+
+
+Original README for Pyverilog
 ==============================
 
 [![Build Status](https://travis-ci.org/PyHDI/Pyverilog.svg)](https://travis-ci.org/PyHDI/Pyverilog)
@@ -449,5 +481,3 @@ Related Project and Site
 
 [shtaxxx.hatenablog.com](http://shtaxxx.hatenablog.com/entry/2014/01/01/045856)
 - Blog entry for introduction and examples of Pyverilog (in Japansese)
-# vmerge
-# vmerge
